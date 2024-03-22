@@ -1,0 +1,10 @@
+{
+  "id": "obsidian-test",
+  "name": "Test",
+  "description": "Create date-links based on natural language",
+  "version": "0.6.2",
+  "author": "Donald Zhu",
+  "authorUrl": "https://argentinaos.com/",
+  "isDesktopOnly": false,
+  "minAppVersion": "1.0.0"
+}

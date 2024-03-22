@@ -1,0 +1,24 @@
+.create-card-setting-wrapper {
+  padding-left: 0;
+  padding-right: 0;
+}
+.create-card-setting-wrapper h1 {
+  margin-bottom: 0;
+  padding: 0.25em 0;
+  position: relative;
+  top: -0.5em;
+  display: inline-block;
+}
+.create-card-setting-wrapper .has-furigana h1 {
+  top: -0.75em;
+  padding: 0;
+}
+.create-card-setting-wrapper p {
+  margin-block-start: 0.4em;
+}
+.create-card-setting-wrapper .parts-of-speech {
+  font-size: var(--font-ui-smaller);
+  line-height: var(--line-height-tight);
+}
+
+/*# sourceMappingURL=styles.css.map */

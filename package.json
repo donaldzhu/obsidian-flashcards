@@ -1,0 +1,43 @@
+{
+  "name": "obsidian-test",
+  "version": "0.6.2",
+  "description": "Plugin to parse natural language dates in Obsidian",
+  "main": "main.js",
+  "scripts": {
+    "lint": "eslint . --ext .ts",
+    "dev": "rollup --config rollup.config.js -w --jsx",
+    "build": "rollup --config rollup.config.js --jsx"
+  },
+  "keywords": [],
+  "author": "Donald Zhu",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "21.0.1",
+    "@rollup/plugin-node-resolve": "13.0.6",
+    "@rollup/plugin-typescript": "8.3.0",
+    "@types/lodash": "^4.14.202",
+    "@types/node": "16.11.7",
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19",
+    "@types/xml2js": "^0.4.14",
+    "@typescript-eslint/eslint-plugin": "^6.7.5",
+    "@typescript-eslint/parser": "^6.7.5",
+    "eslint": "^8.56.0",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-react": "^7.33.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "obsidian": "latest",
+    "rollup": "^2.60.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "capitalize": "^2.0.4",
+    "lodash": "^4.17.21",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "unofficial-jisho-api": "^2.3.4",
+    "xml2js": "^0.6.2"
+  }
+}
