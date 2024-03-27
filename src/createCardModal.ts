@@ -6,10 +6,11 @@ import { cssClass, nativeClass } from './settings/constants'
 import { filterFalsy, truncateDefinition } from './utils/util'
 
 import type { Falsey } from 'lodash'
-import type { FuzzyResult } from './services/dictTypes'
+import type { FuzzyResult } from './types/dictTypes'
 
 import type { App, ButtonComponent } from 'obsidian'
-import type { CardInterface, DictDefintion } from './types/cardTypes'
+import type { CardInterface, DictDefintion, JmdictData } from './types/cardTypes'
+
 type OnSubmitType = (result: CardInterface) => void
 interface Elem {
   settingWrapper: HTMLDivElement
@@ -17,9 +18,12 @@ interface Elem {
   nextButton: ButtonComponent,
   backButton: ButtonComponent
 }
+
 type PartialElem = Elem | Record<keyof Elem, undefined>
 
 export class CreateCardModal extends Modal {
+  private jmdict: JmdictData
+
   private query: string
   private result: Partial<CardInterface>
 
@@ -41,8 +45,10 @@ export class CreateCardModal extends Modal {
   private buttonIsDisabled: boolean
   private onSubmit: OnSubmitType
 
-  constructor(app: App, onSubmit: OnSubmitType) {
+  constructor(app: App, onSubmit: OnSubmitType, jmdictData: JmdictData) {
     super(app)
+    this.jmdict = jmdictData
+
     this.query = ''
     this.result = {
       solution: undefined,
@@ -164,7 +170,7 @@ export class CreateCardModal extends Modal {
     nextButton.setButtonText(next)
     backButton.setDisabled(!this.pageNumber)
     this.pageProps[this.pageNumber].render.apply(this)
-    this.buttonIsDisabled = false
+    setTimeout(() => this.buttonIsDisabled = false, 100)
   }
 
   private renderInputs() {
@@ -245,9 +251,20 @@ export class CreateCardModal extends Modal {
     }
 
     Object.assign(this.result, currentResult)
+
+    if (!this.jmdict.data) await this.jmdict.promise
+    const { data } = this.jmdict
+    if (!data) throw new Error('Jmdict data is unexpectedly undefined.')
+
     this.dictDefinitions = result.definitions.map((translation, i) => ({
       translation,
-      pos: result.partsOfSpeech[i]
+      pos: result.partsOfSpeech[i],
+      misc: dictServices.getMisc(
+        data,
+        kana,
+        kanji,
+        translation
+      )
     }))
 
     console.log('Definitions: ', this.dictDefinitions)
@@ -259,8 +276,15 @@ export class CreateCardModal extends Modal {
     this.resultIndex = 0
   }
 
-  private renderDefinitions() {
-    this.dictDefinitions.forEach((definition, i) => this.renderDefinition(definition, i))
+  private async renderDefinitions() {
+    if (!this.jmdict.data) await this.jmdict.promise
+    if (!this.jmdict.data) throw new Error('Jmdict data is unexpectedly undefined.')
+
+    if (!this.result.kana) return
+
+
+    this.dictDefinitions.forEach((definition, i) =>
+      this.renderDefinition(definition, i))
   }
 
   private renderDefinition({ translation, pos }: DictDefintion, index: number) {
@@ -270,25 +294,33 @@ export class CreateCardModal extends Modal {
     const posStringArrays = dictServices.posToText(pos.map(partOfSpeech =>
       dictServices.parseDictPos(partOfSpeech)))
     const posHtmlArray = posStringArrays.map(([type, props]) =>
-      `${type}${props ? `<span class='${nativeClass.POS}'>(${props})</span>` : ''}`)
+      `${type}${props ? `<span class='${nativeClass.POS}'> (${props})</span>` : ''}`)
 
     const posElem = resultWrapper.createEl('p')
     posElem.innerHTML = posHtmlArray.join(', ')
     posElem.classList.add(cssClass.POS)
 
-    const paragraph = resultWrapper.createEl('p')
-    paragraph.createEl('span', {
+    // const paragraph = resultWrapper.createEl('p')
+    // // paragraph.createEl('span', {
+    // //   text: truncateDefinition(translation)
+    // // })
+
+    const ul = resultWrapper.createEl('ul')
+    ul.createEl('li', {
       text: truncateDefinition(translation)
     })
+
+
   }
 
   private submitDefinition() {
     this.result.definitions = [
-      ..._.pullAt(this.dictDefinitions, this.definitionIndex),
+      ..._.pullAt([...this.dictDefinitions], this.definitionIndex),
       ...this.dictDefinitions
-    ].map(({ translation, pos }) => ({
-      translation: translation,
-      pos: pos.map(p => dictServices.parseDictPos(p))
+    ].map(({ translation, pos, misc }) => ({
+      translation,
+      pos: pos.map(p => dictServices.parseDictPos(p)),
+      misc
     }))
 
     console.log('Sorted Definitions:', this.result.definitions)
@@ -303,11 +335,22 @@ export class CreateCardModal extends Modal {
     console.log(this.result)
 
     const { settingWrapper } = this.elems
-    const { solution, kana } = this.result
-    if (!settingWrapper || !kana) return
+    const { solution, kana, definitions } = this.result
+    if (!settingWrapper || !kana || !definitions) return
+
+    settingWrapper.classList.remove(nativeClass.SETTING_WRAPPER)
+    const { pos } = definitions[0]
 
     const solutionHeader = settingWrapper.createEl('h1')
+    solutionHeader.classList.add('solution-header')
     solutionHeader.innerHTML = solution ? dictServices.furiganaToRuby(solution) : kana
+
+    const posStringArrays = dictServices.posToText(pos, true)
+    const posHtmlArray = posStringArrays.map(([type, props]) =>
+      `${type}${props ? `<span class='${nativeClass.POS}'>(${props})</span>` : ''}`)
+
+    const posElem = settingWrapper.createEl('p')
+    posElem.innerHTML = `<i>${posHtmlArray.join(', ')}</i> - ${definitions[0].translation}`
   }
 
   private renderCard(index: number, cssClasses?: (string | Falsey)[]) {

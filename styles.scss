@@ -15,8 +15,18 @@
     padding: 0;
   }
 
-  p {
+  h1.solution-header {
+    font-size: 1.5em;
+    font-weight: normal;
+  }
+
+  p,
+  ul {
     margin-block-start: 0.4em;
+  }
+
+  ul {
+    // padding-inline-start: 0;
   }
 
   .parts-of-speech {

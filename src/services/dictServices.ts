@@ -1,24 +1,16 @@
-import fs from 'fs'
 import _ from 'lodash'
-import xml2js from 'xml2js'
 
-import { filterFalsy, mightInclude } from '../utils/util'
+import miscMap from '../data/miscMap'
+import { filterFalsy, mapObject, mightInclude, validateString } from '../utils/util'
 import httpServices from './httpServices'
 
 import type { Falsey } from 'lodash'
-import type { JishoResult } from 'unofficial-jisho-api'
-import type { FuzzyResult, JotobaSentence, JotobaWordsRes, ParsedPos, ExampleSentence, PartsOfSpeech } from './dictTypes'
+import type { FuzzyResult, JotobaSentence, JotobaWordsRes, ParsedPos, ExampleSentence, PartsOfSpeech, JMDictEntry } from '../types/dictTypes'
 
 export const JOTOBA_URL = 'https://jotoba.de'
 const JOTOBA_SEARCH_URL = JOTOBA_URL + '/api/search'
 const JOTOBA_WORDS_URL = JOTOBA_SEARCH_URL + '/words'
 const JOTOBA_SENTENCES_URL = JOTOBA_SEARCH_URL + '/sentences'
-const JISHO_WORDS_URL = 'https://jisho.org/api/v1/search/words'
-
-
-//@ts-ignore
-const xmlString = fs.readFileSync(app.vault.adapter.basePath + '/.obsidian/plugins/view-test/src/data/JMdict.xml', 'utf8')
-const xml = xml2js.parseStringPromise(xmlString.replaceAll(/&(?!(?:apos|quot|[gl]t|amp);|#)/g, '&amp;'))
 
 
 const getConfig = (word: string) => ({
@@ -26,84 +18,22 @@ const getConfig = (word: string) => ({
   language: 'English'
 })
 
-const search = async (word: string) => {
-  const jotobaConfig = getConfig(word)
-  const jotobaRes: JotobaWordsRes = (await httpServices.post(JOTOBA_WORDS_URL, jotobaConfig)).data
-  const sentences = ((await httpServices.post(JOTOBA_SENTENCES_URL, jotobaConfig))
-    .data.sentences as JotobaSentence[])
-    .slice(0, 5)
-    .map(sentence => _.pick(sentence, ['content', 'translation']))
-
-  const jotobaWord = jotobaRes.words[0]
-
-  const definitions = jotobaWord.senses.map(sense => sense.glosses.join(', '))
-  const partsOfSpeech = jotobaWord.senses[0].pos
-  const reading = jotobaWord.reading.furigana
-  const pitch = jotobaWord.pitch?.reduce((prev, curr, i) => {
-    return prev + (curr.high ? '↑' : i ? '↓' : '') + curr.part
-  }, '')
-  const audio = jotobaWord.audio ? JOTOBA_URL + jotobaWord.audio : undefined
-
-  const result = {
-    definitions,
-    partsOfSpeech,
-    reading,
-    pitch,
-    audio,
-    sentences,
-  }
-
-  console.log(result)
-  return result
-}
-
-const jishoSearch = (word: string) => {
-  const uri = `${JISHO_WORDS_URL}?keyword=${encodeURIComponent(word)}`
-  // @ts-expect-error
-  return request(uri) as Promise<string>
-}
-
-
 const fuzzySearch = async (word: string) => {
   const jotobaConfig = getConfig(word)
 
   const jotobaRes = (await httpServices.post<JotobaWordsRes>(JOTOBA_WORDS_URL, jotobaConfig)).data
-  // @ts-ignore
-  const jishoRes = (JSON.parse(await jishoSearch(word))).data as JishoResult[]
 
-  console.log(jishoRes)
-  const xmlEntries = (await xml).JMdict.entry
-
-  const results: FuzzyResult[] = jotobaRes.words.map(word => {
-    const { furigana } = word.reading
-    // console.log(word.reading.kanji, word.reading.kana)
-    // @ts-expect-error
-    const matched = xmlEntries.find(entry => {
-      const matchKanji = entry.k_ele && word.reading.kanji ?
-        entry.k_ele[0].keb[0] === word.reading.kanji : true
-      const matchKana = word.reading.kana === entry.r_ele[0].reb[0]
-
-      if (matchKanji && matchKana) console.log(((entry.k_ele || [])[0]?.keb), entry.r_ele[0].reb)
-      return matchKanji && matchKana
-    })
-
-    // console.log('matched', matched)
-    if (!matched) console.log(word.reading.kana)
-    return {
-      furigana,
-      kanji: word.reading.kanji,
-      kana: word.reading.kana,
-      definitions: word.senses.map(sense => sense.glosses.join(', ')),
-      partsOfSpeech: word.senses.map(sense => sense.pos),
-      // miscs: word.senses.map(sense => jishoRes.find(jishoSense =>
-      //   jishoSense.senses)),
-      pitch: word.pitch?.reduce((prev, curr, i) => {
-        return prev + (curr.high ? '↑' : i ? '↓' : '') + curr.part
+  const results: FuzzyResult[] = jotobaRes.words
+    .map(({ reading, senses, pitch, audio, common }) => ({
+      ...reading,
+      definitions: senses.map(sense => sense.glosses.join(', ')),
+      partsOfSpeech: senses.map(sense => sense.pos),
+      pitch: pitch?.reduce((prev, curr, i) => {
+        return prev + (curr.high ? '/' : i ? '\\' : '') + curr.part
       }, ''),
-      audio: word.audio ? JOTOBA_URL + word.audio : undefined,
-      isCommon: word.common
-    }
-  })
+      audio: audio ? JOTOBA_URL + audio : undefined,
+      isCommon: common
+    }))
 
   results.sort((resultA, resultB) => {
     if (resultA.kana === word && resultB.kana !== word) return -1
@@ -153,7 +83,7 @@ const parseDictPos = (pos: PartsOfSpeech): ParsedPos => {
     isSuffix: false,
     isAuxilary: false,
     isPreNounVerb: false,
-    isTransitiveVerb: false,
+    isTransitiveVerb: undefined,
     isPreNounAdj: false
   };
 
@@ -199,7 +129,8 @@ const parseDictPos = (pos: PartsOfSpeech): ParsedPos => {
     if ('Verb' in pos) {
       result.type = 'verb'
       const verbType = pos.Verb
-      if (verbType === 'Unspecified' || verbType === 'Intransitive') return
+      if (verbType === 'Unspecified') return
+      if (verbType === 'Intransitive') return result.isTransitiveVerb = false
       if (verbType === 'Transitive') return result.isTransitiveVerb = true
 
       if (mightInclude(['Ichidan', 'IchidanKureru', 'IchidanZuru'] as const, verbType)) {
@@ -275,7 +206,7 @@ const parseDictPos = (pos: PartsOfSpeech): ParsedPos => {
   return result
 }
 
-const posToText = (parsedPos: ParsedPos[]) => {
+const posToText = (parsedPos: ParsedPos[], shorten = false) => {
   type parsedPosTypes = Exclude<ParsedPos['type'], undefined>
   type extraType = 'auxilary' | 'prefix' | 'suffix'
   type displayPosTypes = parsedPosTypes | extraType
@@ -295,8 +226,11 @@ const posToText = (parsedPos: ParsedPos[]) => {
     verb: 'v.',
     auxilary: 'aux.',
     prefix: 'prefix',
-    suffix: 'suffix'
+    suffix: 'suffix',
   }
+
+  const typeMap = shorten ? typeAcronymMap :
+    mapObject(typeAcronymMap, type => type)
 
   const result: Partial<Record<
     displayPosTypes,
@@ -353,7 +287,8 @@ const posToText = (parsedPos: ParsedPos[]) => {
 
     if (type === 'verb') {
       pushUniq(0, shortenProp(verbType))
-      pushUniq(1, isTransitiveVerb ? 'trans.' : 'intrans.')
+      if (isTransitiveVerb !== undefined)
+        pushUniq(1, isTransitiveVerb ? 'trans.' : 'intrans.')
     }
 
     if (type === 'adjective') {
@@ -377,20 +312,47 @@ const posToText = (parsedPos: ParsedPos[]) => {
         props[1] = []
     }
     const propString = props.flat().join(', ')
-    const shortenedType = typeAcronymMap[type]
+    const shortenedType = typeMap[type]
     return [shortenedType, propString] satisfies [string, string]
   })
 
   return filterFalsy(orderedProps)
 }
 
+const getMisc = (
+  jmdict: Map<string, JMDictEntry[]>,
+  kana: string,
+  kanji: string | null | undefined,
+  definition: string,
+) => {
+  const key = kana + validateString(kanji, `|${kanji}`)
+  const entries = jmdict.get(key)
+  if (!entries) return
+
+  let senseIndex: number | undefined
+  const entry = entries.find(entry => {
+    const index = entry.sense.findIndex(sense =>
+      definition === sense.gloss.join(', '))
+
+    if (index !== -1) {
+      senseIndex = index
+      return true
+    }
+  })
+
+  if (!entry || !senseIndex) return
+  const { misc } = entry.sense[senseIndex]
+  if (!misc) return
+  return misc.map(m => miscMap[m.slice(1, -1) as keyof typeof miscMap])
+}
+
 const dictServices = {
-  search,
   fuzzySearch,
   searchSentence,
   furiganaToRuby,
   parseDictPos,
-  posToText
+  posToText,
+  getMisc
 }
 
 export default dictServices

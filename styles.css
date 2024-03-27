@@ -13,7 +13,12 @@
   top: -0.75em;
   padding: 0;
 }
-.create-card-setting-wrapper p {
+.create-card-setting-wrapper h1.solution-header {
+  font-size: 1.5em;
+  font-weight: normal;
+}
+.create-card-setting-wrapper p,
+.create-card-setting-wrapper ul {
   margin-block-start: 0.4em;
 }
 .create-card-setting-wrapper .parts-of-speech {

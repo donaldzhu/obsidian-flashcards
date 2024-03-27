@@ -56,37 +56,12 @@ const search1 = async word => {
   // words[0].senses.map(sense => console.log(sense))
 
 
-
-  console.log(words)
+  // console.log(words.map(word => word.pitch))
+  console.log(words.map(word => word.senses).map(sense => sense.map(s => s.pos)))
 }
 
 
-const misc = {
-  'abbr': 'Abbreviation',
-  'arch': 'Archaic',
-  'char': 'Character',
-  'chn': 'Children\'s language',
-  'col': 'Colloquial',
-  'company': 'Company name',
-  'creat': 'Creature',
-  'dated': 'Dated term',
-  'dei': 'Deity',
-  'derog': 'Derogatory',
-  'doc': 'Document',
-  'euph': 'Euphemistic',
-  'ev': 'Event',
-  'fam': 'Familiar language',
-  'fem': 'Female term or language',
-  'fict': 'Fiction',
-  'form': 'Formal or literary term',
-  'hist': 'Historical term',
-  'sl': 'Slang',
-  'work': 'Work of art, literature, music, etc. name'
-
-
-}
-
-search1('シーディープレイヤー')
+search1('落とす')
 
 
 

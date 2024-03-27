@@ -1,3 +1,5 @@
+import fs from 'fs/promises'
+import _ from 'lodash'
 import { FileSystemAdapter, Plugin } from 'obsidian'
 
 import { CreateCardModal } from './createCardModal'
@@ -6,13 +8,28 @@ import settings from './settings'
 import { typedKeys } from './utils/util'
 
 import type { WorkspaceLeaf } from 'obsidian'
-import type { CardInterface } from './types/cardTypes'
+import type { CardInterface, JmdictData } from './types/cardTypes'
 export default class ExamplePlugin extends Plugin {
   async onload() {
+    const jmdict: JmdictData = {
+      data: undefined,
+      promise: fs.readFile(
+        //@ts-expect-error
+        app.vault.adapter.basePath +
+        '/.obsidian/plugins/view-test/src/data/JMdict.json', 'utf-8'
+      )
+    }
+
+    jmdict.promise.then(result => {
+      jmdict.data = new Map(_.toPairs(JSON.parse(result)))
+      console.log('dicted')
+    })
+
     this.addCommand({
       id: 'create-flashcard',
       name: 'Create Flashcard',
-      callback: () => new CreateCardModal(this.app, this.createCard).open(),
+      callback: () =>
+        new CreateCardModal(this.app, this.createCard, jmdict).open(),
     })
   }
 

@@ -1,4 +1,5 @@
-import type { ExampleSentence, ParsedPos, PartsOfSpeech } from '../services/dictTypes'
+import type miscMap from '../data/miscMap'
+import type { ExampleSentence, JMDictEntry, ParsedPos, PartsOfSpeech } from './dictTypes'
 
 export enum WordType {
   Verb = 'verb',
@@ -10,14 +11,18 @@ export enum WordType {
   Conjugation = 'conjugation'
 }
 
+export type miscTypes = typeof miscMap[keyof typeof miscMap]
+
 export interface DictDefintion {
   translation: string,
-  pos: PartsOfSpeech[]
+  pos: PartsOfSpeech[],
+  misc?: miscTypes[]
 }
 
-interface Definition {
+export interface Definition {
   translation: string,
   pos: ParsedPos[]
+  misc?: miscTypes[]
 }
 
 export interface CardInterface {
@@ -31,4 +36,9 @@ export interface CardInterface {
   partsOfSpeech: ParsedPos[]
 
   // lesson: number
+}
+
+export interface JmdictData {
+  data?: Map<string, JMDictEntry[]>
+  promise: Promise<string>
 }
