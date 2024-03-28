@@ -57,11 +57,11 @@ const search1 = async word => {
 
 
   // console.log(words.map(word => word.pitch))
-  console.log(words.map(word => word.senses).map(sense => sense.map(s => s.pos)))
+  console.log(words.map(word => word.senses).map(sense => JSON.stringify((sense[0].pos))))
 }
 
 
-search1('落とす')
+search1('あいする')
 
 
 

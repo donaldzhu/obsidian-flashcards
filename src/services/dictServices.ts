@@ -1,16 +1,12 @@
 import _ from 'lodash'
 
 import miscMap from '../data/miscMap'
-import { filterFalsy, mapObject, mightInclude, validateString } from '../utils/util'
-import httpServices from './httpServices'
+import { extract, filterFalsy, mapObject, mightInclude, validateString } from '../utils/util'
+import httpServices, { JOTOBA_URL } from './httpServices'
 
 import type { Falsey } from 'lodash'
-import type { FuzzyResult, JotobaSentence, JotobaWordsRes, ParsedPos, ExampleSentence, PartsOfSpeech, JMDictEntry } from '../types/dictTypes'
-
-export const JOTOBA_URL = 'https://jotoba.de'
-const JOTOBA_SEARCH_URL = JOTOBA_URL + '/api/search'
-const JOTOBA_WORDS_URL = JOTOBA_SEARCH_URL + '/words'
-const JOTOBA_SENTENCES_URL = JOTOBA_SEARCH_URL + '/sentences'
+import type { JotobaFuzzyResult, JotobaSentence, JotobaWordsRes, JotobaPos, JMDictEntry } from '../types/dictTypes'
+import type { ParsedPos, ParsedSentence } from '../types/cardTypes'
 
 
 const getConfig = (word: string) => ({
@@ -18,59 +14,45 @@ const getConfig = (word: string) => ({
   language: 'English'
 })
 
-const fuzzySearch = async (word: string) => {
+const fuzzySearch = async (word: string): Promise<JotobaFuzzyResult[]> => {
   const jotobaConfig = getConfig(word)
+  const jotobaRes = (await httpServices.post<JotobaWordsRes>('words', jotobaConfig)).data
 
-  const jotobaRes = (await httpServices.post<JotobaWordsRes>(JOTOBA_WORDS_URL, jotobaConfig)).data
-
-  const results: FuzzyResult[] = jotobaRes.words
+  return jotobaRes.words
     .map(({ reading, senses, pitch, audio, common }) => ({
       ...reading,
-      definitions: senses.map(sense => sense.glosses.join(', ')),
-      partsOfSpeech: senses.map(sense => sense.pos),
-      pitch: pitch?.reduce((prev, curr, i) => {
-        return prev + (curr.high ? '/' : i ? '\\' : '') + curr.part
-      }, ''),
+      definitions: extract(senses, 'glosses'),
+      partsOfSpeech: extract(senses, 'pos'),
+      pitch: pitch?.reduce((prev, curr, i) =>
+        `${prev}${curr.high ? '/' : i ? '\\' : ''}${curr.part}`, ''),
       audio: audio ? JOTOBA_URL + audio : undefined,
       isCommon: common
     }))
-
-  results.sort((resultA, resultB) => {
-    if (resultA.kana === word && resultB.kana !== word) return -1
-    if (resultA.kana !== word && resultB.kana === word) return 1
-
-    if (resultA.isCommon && !resultB.isCommon) return -1
-    if (!resultA.isCommon && resultB.isCommon) return 1
-
-    return -1
-  })
-
-  console.log('Fuzzy:', results)
-  return results
-}
-
-const searchSentence = async (word: string): Promise<ExampleSentence[]> => {
-  const jotobaConfig = getConfig(word)
-  const sentences = ((await httpServices.post(JOTOBA_SENTENCES_URL, jotobaConfig))
-    .data.sentences as JotobaSentence[])
-    .slice(0, 10)
-    .map(sentence => _.pick(sentence, ['content', 'furigana', 'translation']))
-  return sentences
+    .sort((a, b) => a.isCommon && !b.isCommon ? -1 : 1)
 }
 
 const furiganaToRuby = (furigana: string) => {
   return furigana.replaceAll(
     /\[[一-龠ぁ-ゔァ-ヴーa-zA-Z0-9ａ-ｚＡ-Ｚ０-９々〆〤ヶ|]*\]/gui,
     match => {
-      const furiganaArray = match.slice(1, match.length - 1).split('|')
-      const kanji = furiganaArray.shift()?.split('') || []
-      const result = `<ruby>${furiganaArray.map((kana, i) => `${kanji[i]}<rt>${kana}</rt>`).join('')}</ruby>`
-      return result
+      const furiganaArray = match.slice(1, -1).split('|')
+      const kanji = furiganaArray.shift()?.split('') ?? []
+      return `<ruby>${furiganaArray.map((kana, i) =>
+        `${kanji[i]}<rt>${kana}</rt>`).join('')}</ruby>`
     }
   )
 }
 
-const parseDictPos = (pos: PartsOfSpeech): ParsedPos => {
+const searchSentence = async (word: string): Promise<ParsedSentence[]> => {
+  const jotobaConfig = getConfig(word)
+  const sentences = ((await httpServices.post('sentences', jotobaConfig))
+    .data.sentences as JotobaSentence[])
+    .slice(0, 10)
+    .map(sentence => _.pick(sentence, ['content', 'furigana', 'translation']))
+  return sentences
+}
+
+const parseDictPos = (pos: JotobaPos): ParsedPos => {
   const result: ParsedPos = {
     type: undefined,
     tag: undefined,
@@ -90,11 +72,11 @@ const parseDictPos = (pos: PartsOfSpeech): ParsedPos => {
   (() => {
     if (pos === 'Unclassified') return
     if (pos === undefined) return result.type = 'coupla'
+    if (pos === 'Expr') return result.type = 'expression'
 
     if (mightInclude([
       'Conjuction',
       'Counter',
-      'Expression',
       'Interjection',
       'Numeric',
       'Pronoun',
@@ -132,6 +114,11 @@ const parseDictPos = (pos: PartsOfSpeech): ParsedPos => {
       if (verbType === 'Unspecified') return
       if (verbType === 'Intransitive') return result.isTransitiveVerb = false
       if (verbType === 'Transitive') return result.isTransitiveVerb = true
+      if (verbType === 'Kuru') {
+        result.verbType = 'irregular'
+        result.verbSpecialSuffix = 'くる'
+        return
+      }
 
       if (mightInclude(['Ichidan', 'IchidanKureru', 'IchidanZuru'] as const, verbType)) {
         result.verbType = 'る'
@@ -144,7 +131,6 @@ const parseDictPos = (pos: PartsOfSpeech): ParsedPos => {
       if ('Yodan' in verbType) return result.tag = '四段'
       if ('Godan' in verbType) {
         const godanType = verbType.Godan
-        if (godanType === 'Kuru') return result.verbType = 'くる'
 
         result.verbSuffix =
           godanType === 'Bu' ? 'ぶ' :
@@ -323,7 +309,7 @@ const getMisc = (
   jmdict: Map<string, JMDictEntry[]>,
   kana: string,
   kanji: string | null | undefined,
-  definition: string,
+  definitions: string[],
 ) => {
   const key = kana + validateString(kanji, `|${kanji}`)
   const entries = jmdict.get(key)
@@ -332,7 +318,7 @@ const getMisc = (
   let senseIndex: number | undefined
   const entry = entries.find(entry => {
     const index = entry.sense.findIndex(sense =>
-      definition === sense.gloss.join(', '))
+      _.isEqual(definitions, sense.gloss))
 
     if (index !== -1) {
       senseIndex = index
@@ -342,14 +328,13 @@ const getMisc = (
 
   if (!entry || !senseIndex) return
   const { misc } = entry.sense[senseIndex]
-  if (!misc) return
-  return misc.map(m => miscMap[m.slice(1, -1) as keyof typeof miscMap])
+  return misc?.map(m => miscMap[m.slice(1, -1) as keyof typeof miscMap])
 }
 
 const dictServices = {
   fuzzySearch,
-  searchSentence,
   furiganaToRuby,
+  searchSentence,
   parseDictPos,
   posToText,
   getMisc

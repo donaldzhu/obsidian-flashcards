@@ -8,10 +8,12 @@ import settings from './settings'
 import { typedKeys } from './utils/util'
 
 import type { WorkspaceLeaf } from 'obsidian'
-import type { CardInterface, JmdictData } from './types/cardTypes'
+import type { CardInterface } from './types/cardTypes'
+import type { JMDictData } from './types/dictTypes'
+
 export default class ExamplePlugin extends Plugin {
   async onload() {
-    const jmdict: JmdictData = {
+    const jmdict: JMDictData = {
       data: undefined,
       promise: fs.readFile(
         //@ts-expect-error
@@ -20,10 +22,8 @@ export default class ExamplePlugin extends Plugin {
       )
     }
 
-    jmdict.promise.then(result => {
-      jmdict.data = new Map(_.toPairs(JSON.parse(result)))
-      console.log('dicted')
-    })
+    jmdict.promise.then(result =>
+      jmdict.data = new Map(_.toPairs(JSON.parse(result))))
 
     this.addCommand({
       id: 'create-flashcard',

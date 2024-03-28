@@ -3,15 +3,29 @@ import { Modal, Setting } from 'obsidian'
 
 import dictServices from './services/dictServices'
 import { cssClass, nativeClass } from './settings/constants'
-import { filterFalsy, truncateDefinition } from './utils/util'
+import { filterFalsy, loopObject, truncateDefinition } from './utils/util'
 
 import type { Falsey } from 'lodash'
-import type { FuzzyResult } from './types/dictTypes'
+import type { JotobaFuzzyResult } from './types/dictTypes'
 
 import type { App, ButtonComponent } from 'obsidian'
-import type { CardInterface, DictDefintion, JmdictData } from './types/cardTypes'
+import type { CardInterface, ParsedDefinition } from './types/cardTypes'
+import type { JMDictData } from './types/dictTypes'
 
-type OnSubmitType = (result: CardInterface) => void
+interface Memoized<T> {
+  reset: () => void
+  value: T
+}
+
+interface PageProp<T extends Record<string, Memoized<any>> | undefined = undefined> {
+  header: string | (() => string)
+  next: string
+  render: () => void | (() => void)
+  submit: () => Promise<void> | void
+  classes?: string
+  data: T
+}
+
 interface Elem {
   settingWrapper: HTMLDivElement
   title: HTMLHeadingElement
@@ -21,35 +35,43 @@ interface Elem {
 
 type PartialElem = Elem | Record<keyof Elem, undefined>
 
-export class CreateCardModal extends Modal {
-  private jmdict: JmdictData
+type OnSubmitType = (result: CardInterface) => void
 
-  private query: string
+enum ModalPage {
+  Search,
+  Result,
+  Definition,
+  Extra
+}
+
+export class CreateCardModal extends Modal {
+  private jmdict: JMDictData
   private result: Partial<CardInterface>
 
-  private fuzzyResults: FuzzyResult[]
-  private resultIndex: number
+  private initialQuery: string
 
-  private dictDefinitions: DictDefintion[]
-  private definitionIndex: number
+  private fuzzyResults: JotobaFuzzyResult[]
+  private dictDefinitions: ParsedDefinition[]
 
   private pageNumber: number
-  private pageProps: {
-    header: string
-    next: string,
-    unmount: () => void,
-    render: () => void,
-    submit: () => Promise<void> | void
-  }[]
+  private pageProps: [
+    PageProp,
+    PageProp<{ index: Memoized<number> }>,
+    PageProp<{ index: Memoized<number> }>,
+    PageProp
+  ]
+  private onPageUnmount: void | (() => void)
+
   private elems: PartialElem
   private buttonIsDisabled: boolean
   private onSubmit: OnSubmitType
 
-  constructor(app: App, onSubmit: OnSubmitType, jmdictData: JmdictData) {
+  private readonly SETTING_WRAPPER_CLASS: string
+
+  constructor(app: App, onSubmit: OnSubmitType, jmdictData: JMDictData) {
     super(app)
     this.jmdict = jmdictData
 
-    this.query = ''
     this.result = {
       solution: undefined,
       definitions: undefined,
@@ -60,43 +82,53 @@ export class CreateCardModal extends Modal {
       sentences: []
     }
 
+    this.initialQuery = ''
     this.fuzzyResults = []
-    this.resultIndex = 0
-
     this.dictDefinitions = []
-    this.definitionIndex = 0
 
+    this.SETTING_WRAPPER_CLASS = cssClass.SETTING_WRAPPER
     this.pageNumber = -1
     this.pageProps = [
       {
         header: 'Create new flashcard',
         next: 'Search',
-        unmount: _.noop,
         render: this.renderInputs,
-        submit: this.submitInputs
+        submit: this.submitInputs,
+        data: undefined
       },
       {
         header: 'Select Search Result',
         next: 'Select',
-        unmount: this.unmountSearchResults,
         render: this.renderSearchResults,
-        submit: this.submitSearchResults
+        submit: this.submitSearchResults,
+        data: {
+          index: this.memoize(0)
+        },
+        classes: nativeClass.SETTING_WRAPPER
       },
       {
-        header: 'Select Primary Definition',
+        header: () => {
+          const furigana = this.result.solution
+          return `Select Primary Definition - ${furigana ?
+            dictServices.furiganaToRuby(furigana) : this.result.kana}`
+        },
         next: 'Create',
-        unmount: this.unmountDefinitions,
         render: this.renderDefinitions,
-        submit: this.submitDefinition
+        submit: this.submitDefinition,
+        data: {
+          index: this.memoize(0)
+        },
+        classes: nativeClass.SETTING_WRAPPER
       },
       {
         header: 'Add Extra Data',
         next: 'Submit',
-        unmount: _.noop,
         render: this.renderExtra,
-        submit: _.noop
+        submit: _.noop,
+        data: undefined
       }
     ]
+    this.onPageUnmount = undefined
 
     this.elems = {
       settingWrapper: undefined,
@@ -130,22 +162,22 @@ export class CreateCardModal extends Modal {
         btn
           .setCta()
           .onClick(async () => {
-            if (this.query)
+            if (this.initialQuery)
               this.toNextPage()
           })
       })
 
     this.toNextPage()
-    window.addEventListener('keydown', this.keydownListener)
+    window.addEventListener('keydown', this.submitKeydownListener)
   }
 
   onClose() {
     const { contentEl } = this
     contentEl.empty()
-    window.removeEventListener('keydown', this.keydownListener)
+    window.removeEventListener('keydown', this.submitKeydownListener)
   }
 
-  private keydownListener = (e: KeyboardEvent) => {
+  private submitKeydownListener = (e: KeyboardEvent) => {
     if (e.key === 'Enter' && !this.buttonIsDisabled)
       this.elems.nextButton?.buttonEl.click()
   }
@@ -157,89 +189,82 @@ export class CreateCardModal extends Modal {
   }
 
   private toPrevPage() {
-    this.pageProps[this.pageNumber--]?.unmount.apply(this)
+    this.pageNumber--
+    const memos = this.getPageData(this.pageNumber)
+    if (memos) loopObject(memos, (_, memo) => memo.reset())
     this.turnPage()
   }
 
   private turnPage() {
-    if (!this.validateElems(this.elems)) return
-    const { header, next } = this.pageProps[this.pageNumber]
+    if (!this.validateElems(this.elems)) throw this.invalidElemsError;
+    (this.onPageUnmount || _.noop)()
+
+    const { header, next, classes } = this.pageProps[this.pageNumber]
     const { settingWrapper, title, nextButton, backButton } = this.elems
     settingWrapper.empty()
-    title.setText(header)
+
+    settingWrapper.className = this.SETTING_WRAPPER_CLASS
+    if (classes) settingWrapper.classList.add(classes)
+
+    title.innerHTML = typeof header === 'string' ? header : header()
     nextButton.setButtonText(next)
     backButton.setDisabled(!this.pageNumber)
-    this.pageProps[this.pageNumber].render.apply(this)
+    this.onPageUnmount = this.pageProps[this.pageNumber].render.apply(this)
     setTimeout(() => this.buttonIsDisabled = false, 100)
   }
 
   private renderInputs() {
+    if (!this.validateElems(this.elems)) throw this.invalidElemsError
     const { settingWrapper } = this.elems
-    if (!settingWrapper) return
-    new Setting(settingWrapper)
+    const input = new Setting(settingWrapper)
       .setName('Japanese')
       .addText(text => {
-        text.setValue(this.query)
+        text.setValue(this.initialQuery)
         text.onChange(value =>
-          this.query = value
+          this.initialQuery = value
         )
       })
+
+    input.controlEl.querySelector('input')?.focus()
   }
 
   private async submitInputs() {
-    this.fuzzyResults = await dictServices.fuzzySearch(this.query)
+    this.fuzzyResults = await dictServices.fuzzySearch(this.initialQuery)
+    console.log('Fuzzy: ', this.fuzzyResults)
   }
 
   private renderSearchResults() {
-    this.fuzzyResults.forEach((result, i) => this.renderSearchResult(result, i))
-  }
-
-  private renderSearchResult(
-    {
+    this.fuzzyResults.forEach(({
       furigana,
       kana,
       definitions,
       isCommon
-    }: FuzzyResult,
-    index: number
-  ) {
-    const resultWrapper = this.renderCard(index, [!!furigana && cssClass.HAS_FURIGANA])
-    if (!resultWrapper) return
+    }, index) => {
+      const resultWrapper = this.renderCard(index, [!!furigana && cssClass.HAS_FURIGANA])
+      const header = resultWrapper.createEl('h1', { cls: nativeClass.CARD_HEADER })
+      header.innerHTML = dictServices.furiganaToRuby(furigana ?? kana)
+      if (!isCommon) header.createSpan({
+        cls: nativeClass.FLAIR,
+        text: 'UNCOMMON'
+      })
 
-    const header = resultWrapper.createEl('h1')
-    header.addClass(nativeClass.CARD_HEADER)
-    header.innerHTML = furigana ? dictServices.furiganaToRuby(furigana) : kana
-    if (!isCommon) {
-      const span = header.createSpan()
-      span.classList.add(nativeClass.FLAIR)
-      span.innerText = 'UNCOMMON'
-    }
-
-    resultWrapper.createEl('p', {
-      text: truncateDefinition(definitions[0])
+      resultWrapper.createEl('p', {
+        text: truncateDefinition(definitions[0].join(', '))
+      })
     })
-  }
 
-  private onResultClicked(index: number) {
-    if (this.pageNumber === 1)
-      this.resultIndex = index
-    else if (this.pageNumber === 2)
-      this.definitionIndex = index
-    const { settingWrapper } = this.elems
-    if (!settingWrapper) return
-
-    const resultWrappers = Array.from(settingWrapper.getElementsByClassName(nativeClass.CARD))
-    for (let i = 0; i < resultWrappers.length; i++) {
-      const resultWrapper = resultWrappers[i]
-      if (i === index) resultWrapper.classList.add(nativeClass.CARD_IS_SELECTED)
-      else resultWrapper.classList.remove(nativeClass.CARD_IS_SELECTED)
-    }
+    return this.getArrowKeydownListener(
+      this.pageProps[ModalPage.Result].data.index,
+      this.fuzzyResults.length
+    )
   }
 
   private async submitSearchResults() {
-    const result = this.fuzzyResults[this.resultIndex]
+    const { index } = this.getPageData(ModalPage.Result)
+    const result = this.fuzzyResults[index.value]
     const { furigana, kanji, kana } = result
-    const currentResult: Partial<CardInterface> = {
+
+    Object.assign(this.result, {
       ..._.pick(result, [
         'pitch',
         'audio',
@@ -248,87 +273,66 @@ export class CreateCardModal extends Modal {
       ]),
       solution: furigana ?? kana,
       sentences: await dictServices.searchSentence(kanji ?? kana)
-    }
-
-    Object.assign(this.result, currentResult)
+    })
 
     if (!this.jmdict.data) await this.jmdict.promise
     const { data } = this.jmdict
     if (!data) throw new Error('Jmdict data is unexpectedly undefined.')
 
-    this.dictDefinitions = result.definitions.map((translation, i) => ({
-      translation,
-      pos: result.partsOfSpeech[i],
+    this.dictDefinitions = result.definitions.map((translations, i) => ({
+      translations,
+      partsOfSpeech: result.partsOfSpeech[i].map(pos => dictServices.parseDictPos(pos)),
       misc: dictServices.getMisc(
         data,
         kana,
         kanji,
-        translation
+        translations
       )
     }))
 
     console.log('Definitions: ', this.dictDefinitions)
   }
 
-  private unmountSearchResults() {
-    this.fuzzyResults = []
-    this.elems.settingWrapper?.classList.remove(...cssClass.SETTING_WRAPPER)
-    this.resultIndex = 0
-  }
+  private renderDefinitions() {
+    this.dictDefinitions.forEach(({ translations, partsOfSpeech }, index) => {
+      const resultWrapper = this.renderCard(index)
 
-  private async renderDefinitions() {
-    if (!this.jmdict.data) await this.jmdict.promise
-    if (!this.jmdict.data) throw new Error('Jmdict data is unexpectedly undefined.')
+      const posStringArrays = dictServices.posToText(partsOfSpeech)
+      const posHtmlArray = posStringArrays.map(([type, props]) =>
+        `${type}${props ? `<span class='${nativeClass.POS}'> (${props})</span>` : ''}`)
 
-    if (!this.result.kana) return
+      const posElem = resultWrapper.createEl('p')
+      posElem.innerHTML = posHtmlArray.join(', ')
+      posElem.classList.add(cssClass.POS)
 
-
-    this.dictDefinitions.forEach((definition, i) =>
-      this.renderDefinition(definition, i))
-  }
-
-  private renderDefinition({ translation, pos }: DictDefintion, index: number) {
-    const resultWrapper = this.renderCard(index)
-    if (!resultWrapper) return
-
-    const posStringArrays = dictServices.posToText(pos.map(partOfSpeech =>
-      dictServices.parseDictPos(partOfSpeech)))
-    const posHtmlArray = posStringArrays.map(([type, props]) =>
-      `${type}${props ? `<span class='${nativeClass.POS}'> (${props})</span>` : ''}`)
-
-    const posElem = resultWrapper.createEl('p')
-    posElem.innerHTML = posHtmlArray.join(', ')
-    posElem.classList.add(cssClass.POS)
-
-    // const paragraph = resultWrapper.createEl('p')
-    // // paragraph.createEl('span', {
-    // //   text: truncateDefinition(translation)
-    // // })
-
-    const ul = resultWrapper.createEl('ul')
-    ul.createEl('li', {
-      text: truncateDefinition(translation)
+      const ulElem = resultWrapper.createEl('ul')
+      for (
+        let i = 0, trans = translations.slice(0, 3), chars = 0;
+        i < trans.length && chars <= 100;
+        chars += trans[i++].length
+      ) {
+        const translation = trans[i]
+        ulElem.createEl('li', {
+          text: truncateDefinition(translation, 80)
+        })
+      }
     })
 
-
+    return this.getArrowKeydownListener(
+      this.pageProps[ModalPage.Definition].data.index,
+      this.dictDefinitions.length
+    )
   }
 
   private submitDefinition() {
+    const dictDefinitions = [...this.dictDefinitions]
+    const { index } = this.getPageData(ModalPage.Definition)
     this.result.definitions = [
-      ..._.pullAt([...this.dictDefinitions], this.definitionIndex),
-      ...this.dictDefinitions
-    ].map(({ translation, pos, misc }) => ({
-      translation,
-      pos: pos.map(p => dictServices.parseDictPos(p)),
-      misc
-    }))
+      ..._.pullAt(dictDefinitions, index.value),
+      ...dictDefinitions
+    ]
 
     console.log('Sorted Definitions:', this.result.definitions)
-  }
-
-  private unmountDefinitions() {
-    this.elems.settingWrapper?.classList.remove(...cssClass.SETTING_WRAPPER)
-    this.definitionIndex = 0
   }
 
   private renderExtra() {
@@ -338,43 +342,101 @@ export class CreateCardModal extends Modal {
     const { solution, kana, definitions } = this.result
     if (!settingWrapper || !kana || !definitions) return
 
-    settingWrapper.classList.remove(nativeClass.SETTING_WRAPPER)
-    const { pos } = definitions[0]
-
+    const { partsOfSpeech } = definitions[0]
     const solutionHeader = settingWrapper.createEl('h1')
     solutionHeader.classList.add('solution-header')
     solutionHeader.innerHTML = solution ? dictServices.furiganaToRuby(solution) : kana
 
-    const posStringArrays = dictServices.posToText(pos, true)
+    const posStringArrays = dictServices.posToText(partsOfSpeech, true)
     const posHtmlArray = posStringArrays.map(([type, props]) =>
       `${type}${props ? `<span class='${nativeClass.POS}'>(${props})</span>` : ''}`)
 
     const posElem = settingWrapper.createEl('p')
-    posElem.innerHTML = `<i>${posHtmlArray.join(', ')}</i> - ${definitions[0].translation}`
+    posElem.innerHTML = `<i>${posHtmlArray.join(', ')}</i> - ${definitions[0].translations}`
   }
 
   private renderCard(index: number, cssClasses?: (string | Falsey)[]) {
+    if (!this.validateElems(this.elems)) throw this.invalidElemsError
     const { settingWrapper } = this.elems
-    if (!settingWrapper) return
 
     settingWrapper.classList.add(...cssClass.SETTING_WRAPPER)
-    const resultWrapper = settingWrapper.createDiv()
-
-    resultWrapper.classList.add(
-      nativeClass.CARD,
-      ...filterFalsy(cssClasses ?? [])
-    )
+    const resultWrapper = settingWrapper.createDiv({
+      cls: [
+        nativeClass.CARD,
+        ...filterFalsy(cssClasses ?? [])
+      ]
+    })
 
     resultWrapper.tabIndex = 0
     resultWrapper.onfocus =
       resultWrapper.onclick =
-      () => this.onResultClicked(index) // TODO
+      () => this.onResultSelected(index)
     if (!index) resultWrapper.focus()
 
     return resultWrapper
   }
 
+  private onResultSelected(resultIndex: number) {
+    if (!this.validateElems(this.elems)) throw this.invalidElemsError
+
+    this.getPageData(this.pageNumber === ModalPage.Result ?
+      ModalPage.Result : ModalPage.Definition).index.value = resultIndex
+
+    const { settingWrapper } = this.elems
+    const { CARD, CARD_IS_SELECTED } = nativeClass
+
+    const resultWrappers = Array.from(settingWrapper
+      .getElementsByClassName(CARD)) as HTMLDivElement[]
+    for (let i = 0; i < resultWrappers.length; i++) {
+      const resultWrapper = resultWrappers[i]
+      if (i === resultIndex) {
+        resultWrapper.classList.add(CARD_IS_SELECTED)
+        resultWrapper.focus()
+      }
+      else resultWrapper.classList.remove(CARD_IS_SELECTED)
+    }
+  }
+
+  private getArrowKeydownListener(
+    memoizedIndex: Memoized<number>,
+    itemCount: number
+  ) {
+    const keyboardListener = (e: KeyboardEvent) => {
+      const newIndex = this.getArrowKeydownIndex(
+        e, memoizedIndex.value, itemCount)
+      this.onResultSelected(newIndex)
+    }
+
+    window.addEventListener('keydown', keyboardListener)
+    return () => window.removeEventListener('keydown', keyboardListener)
+  }
+
+  private getArrowKeydownIndex({ key }: KeyboardEvent, currentIndex: number, itemCount: number) {
+    let result = currentIndex
+    if (key === 'ArrowRight' && !(currentIndex % 2)) result++
+    if (key === 'ArrowLeft' && currentIndex % 2) result--
+    if (key === 'ArrowUp') result -= 2
+    if (key === 'ArrowDown') result += 2
+    return _.inRange(result, 0, itemCount) ? result : currentIndex
+  }
+
   private validateElems(elems: PartialElem): elems is Elem {
     return Object.values(elems).every(elem => elem)
+  }
+
+  private memoize<T>(initial: T): Memoized<T> {
+    return {
+      reset: function () { this.value = initial },
+      value: initial
+    }
+  }
+
+  private get invalidElemsError() {
+    return new Error('Modal elements are incomplete.')
+  }
+
+  private getPageData<T extends ModalPage>(pageNumber: T): typeof this.pageProps[T]['data'] {
+    const pageProps = this.pageProps[pageNumber]
+    return pageProps.data
   }
 }

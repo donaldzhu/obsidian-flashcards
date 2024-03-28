@@ -9,7 +9,7 @@ export const nativeClass = {
 
 
 export const cssClass = {
-  SETTING_WRAPPER: [nativeClass.SETTING_WRAPPER, 'create-card-setting-wrapper'],
+  SETTING_WRAPPER: 'create-card-setting-wrapper',
   HAS_FURIGANA: 'has-furigana',
   POS: 'parts-of-speech'
 }

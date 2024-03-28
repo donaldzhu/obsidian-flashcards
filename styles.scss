@@ -3,11 +3,18 @@
   padding-right: 0;
 
   h1 {
-    margin-bottom: 0;
-    padding: 0.25em 0;
-    position: relative;
-    top: -0.5em;
-    display: inline-block;
+    &.community-item-name {
+      margin-bottom: 0;
+      padding: 0.25em 0;
+      position: relative;
+      top: -0.5em;
+      display: inline-block;
+    }
+
+    &.solution-header {
+      font-size: 1.5em;
+      font-weight: normal;
+    }
   }
 
   .has-furigana h1 {
@@ -15,22 +22,15 @@
     padding: 0;
   }
 
-  h1.solution-header {
-    font-size: 1.5em;
-    font-weight: normal;
+  p.parts-of-speech {
+    font-style: italic;
+    font-size: var(--font-ui-smaller);
+    line-height: var(--line-height-tight);
+    margin-bottom: 0;
   }
 
   p,
   ul {
     margin-block-start: 0.4em;
-  }
-
-  ul {
-    // padding-inline-start: 0;
-  }
-
-  .parts-of-speech {
-    font-size: var(--font-ui-smaller);
-    line-height: var(--line-height-tight);
   }
 }

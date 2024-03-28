@@ -22,6 +22,19 @@ export const mapObject = <T extends object, R>(
   return newObject as Record<keyof T, R>
 }
 
+export const loopObject = <T extends object>(
+  object: T,
+  callback: (key: keyof T, value: T[keyof T], object: T) => void
+) => {
+  const keys = typedKeys(object)
+  keys.forEach(key => {
+    const value = object[key]
+    callback(key, value, object)
+  })
+
+  return object
+}
+
 export function validateString(string: string): string
 export function validateString<T>(validator: T, string?: string): string
 export function validateString<T>(validatorOrString: T | string, string?: string) {
@@ -36,12 +49,18 @@ export const mightInclude = <T, K>(array: readonly T[], element: T | K): element
   return array.includes(element as unknown as T)
 }
 
+export const arrayify = <T>(possibleArray: T | T[]) =>
+  Array.isArray(possibleArray) ? possibleArray : [possibleArray]
+
 export const truncateDefinition = (definition: string, length = 100) =>
   _.truncate(definition, {
     length,
     separator: /(\.{3})?,? +/
   })
 
+
+export const extract = <O extends object, K extends keyof O>(array: O[], key: K) =>
+  array.map(elem => elem[key])
 
 export type Tuple<T, N extends number> = N extends N ?
   number extends N ? T[] : _TupleOf<T, N, []> : never

@@ -1,44 +1,53 @@
 import type miscMap from '../data/miscMap'
-import type { ExampleSentence, JMDictEntry, ParsedPos, PartsOfSpeech } from './dictTypes'
 
-export enum WordType {
-  Verb = 'verb',
-  Noun = 'noun',
-  Adjective = 'adjective',
-  Adverb = 'adverb',
-  Pronoun = 'pronoun',
-  Preposition = 'preposition',
-  Conjugation = 'conjugation'
+export interface ParsedDefinition {
+  translations: string[],
+  misc?: typeof miscMap[keyof typeof miscMap][]
+  partsOfSpeech: ParsedPos[]
 }
 
-export type miscTypes = typeof miscMap[keyof typeof miscMap]
-
-export interface DictDefintion {
-  translation: string,
-  pos: PartsOfSpeech[],
-  misc?: miscTypes[]
+export interface ParsedSentence {
+  content: string
+  furigana: string
+  translation: string
 }
 
-export interface Definition {
-  translation: string,
-  pos: ParsedPos[]
-  misc?: miscTypes[]
+export interface ParsedPos {
+  type?:
+  | 'adjective'
+  | 'adverb'
+  | 'coupla'
+  | 'conjuction'
+  | 'counter'
+  | 'expression'
+  | 'interjection'
+  | 'noun'
+  | 'numeric'
+  | 'pronoun'
+  | 'particle'
+  | 'verb'
+  tag?: 'irregular' | 'special' | '二段' | '四段' | '〜の' | '〜と'
+  adjType?: 'い' | 'く' | 'な' | 'しく' | 'たる'
+  adjSpecialSuffix?: 'いい/よい' | 'なり'
+  verbType?: 'る' | 'う' | 'する' | '~する' | 'irregular'
+  verbSuffix?: 'ぶ' | 'ぐ' | 'く' | 'む' | 'ぬ' | 'る' | 'す' | 'つ' | 'う'
+  verbSpecialSuffix?: 'くれる' | 'ある' | 'いく' | 'ずる' | 'くる'
+  isPrefix: boolean
+  isSuffix: boolean
+  isAuxilary: boolean
+  isTransitiveVerb?: boolean
+  isPreNounVerb: boolean
+  isPreNounAdj: boolean
 }
 
 export interface CardInterface {
   solution: string
-  definitions: Definition[]
+  definitions: ParsedDefinition[]
   pitch: string
   audio: string
   kanji: string | null
   kana: string
-  sentences: ExampleSentence[]
+  sentences: ParsedSentence[]
   partsOfSpeech: ParsedPos[]
-
-  // lesson: number
 }
 
-export interface JmdictData {
-  data?: Map<string, JMDictEntry[]>
-  promise: Promise<string>
-}

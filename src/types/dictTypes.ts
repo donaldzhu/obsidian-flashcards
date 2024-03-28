@@ -1,17 +1,17 @@
-type DictProps<T extends string, K extends string> =
+type JMDictProps<T extends string, K extends string> =
   Record<T, string[]> & Partial<Record<K, string[]>>
 
 
-type DictPropsAttr<T extends string> = ({
+type JMDictPropsAttr<T extends string> = ({
   _: string
   $: Record<T, string>
 } | string)[]
 
 export interface JMDictEntry {
   ent_seq: string[]
-  k_ele?: DictProps<'keb', 'ke_inf' | 'ke_pri'>[]
-  r_ele: DictProps<'reb', 're_nokanji' | 're_restr' | 're_inf' | 're_pri'>[]
-  sense: (DictProps<'pos',
+  k_ele?: JMDictProps<'keb', 'ke_inf' | 'ke_pri'>[]
+  r_ele: JMDictProps<'reb', 're_nokanji' | 're_restr' | 're_inf' | 're_pri'>[]
+  sense: (JMDictProps<'pos',
     'stagk' |
     'stagr' |
     'xref' |
@@ -21,12 +21,17 @@ export interface JMDictEntry {
     's_inf' |
     'dial'
   > & {
-    lsource?: DictPropsAttr<'xml:lang' | 'ls_type' | 'ls_wasei'>
-    gloss: DictPropsAttr<'xml:lang' | 'g_gend' | 'g_type'>
+    lsource?: JMDictPropsAttr<'xml:lang' | 'ls_type' | 'ls_wasei'>
+    gloss: JMDictPropsAttr<'xml:lang' | 'g_gend' | 'g_type'>
   })[]
 }
 
-export interface JotobaKanji {
+export interface JMDictData {
+  data?: Map<string, JMDictEntry[]>
+  promise: Promise<string>
+}
+
+interface JotobaKanji {
   literal: string
   meanings: string[]
   grade: number
@@ -42,7 +47,7 @@ export interface JotobaKanji {
   radical: string
 }
 
-export type PartsOfSpeech =
+export type JotobaPos =
   Record<'Adjective',
     'PreNounVerb' |
     'Keiyoushi' |
@@ -63,7 +68,7 @@ export type PartsOfSpeech =
   'Conjuction' |
   undefined |
   'Counter' |
-  'Expression' |
+  'Expr' |
   'Interjection' |
   Record<'Noun',
     'Normal' |
@@ -95,10 +100,10 @@ export type PartsOfSpeech =
       'Su' |
       'Tsu' |
       'U' |
-      'USpecial' |
-      'Kuru'
+      'USpecial'
     > |
     'Intransitive' |
+    'Kuru' |
     Record<'Irregular',
       'Nu' |
       'Ru' |
@@ -112,7 +117,7 @@ export type PartsOfSpeech =
   >
 
 
-export interface JotobaWords {
+interface JotobaWords {
   reading: {
     kana: string,
     kanji?: string,
@@ -121,7 +126,7 @@ export interface JotobaWords {
   common: boolean,
   senses: {
     glosses: string[],
-    pos: PartsOfSpeech[],
+    pos: JotobaPos[],
     language: string
   }[],
   audio?: string,
@@ -144,49 +149,15 @@ export interface JotobaSentence {
   eng: string
 }
 
-export interface ExampleSentence {
-  content: string
-  furigana: string
-  translation: string
-}
-
-export interface FuzzyResult {
+export interface JotobaFuzzyResult {
   furigana: string | null
   kanji?: string
   kana: string
-
-  definitions: string[]
-  partsOfSpeech: PartsOfSpeech[][]
+  definitions: string[][]
+  partsOfSpeech: JotobaPos[][]
   pitch?: string
   audio?: string
-
   isCommon: boolean
 }
 
-export interface ParsedPos {
-  type?:
-  | 'adjective'
-  | 'adverb'
-  | 'coupla'
-  | 'conjuction'
-  | 'counter'
-  | 'expression'
-  | 'interjection'
-  | 'noun'
-  | 'numeric'
-  | 'pronoun'
-  | 'particle'
-  | 'verb'
-  tag?: 'irregular' | 'special' | '二段' | '四段' | '〜の' | '〜と'
-  adjType?: 'い' | 'く' | 'な' | 'しく' | 'たる'
-  adjSpecialSuffix?: 'いい/よい' | 'なり'
-  verbType?: 'る' | 'う' | 'する' | '~する' | 'くる' | 'irregular'
-  verbSuffix?: 'ぶ' | 'ぐ' | 'く' | 'む' | 'ぬ' | 'る' | 'す' | 'つ' | 'う'
-  verbSpecialSuffix?: 'くれる' | 'ある' | 'いく' | 'ずる'
-  isPrefix: boolean
-  isSuffix: boolean
-  isAuxilary: boolean
-  isTransitiveVerb?: boolean
-  isPreNounVerb: boolean
-  isPreNounAdj: boolean
-}
+

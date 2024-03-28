@@ -1,5 +1,8 @@
 import axios from 'axios'
 
+export const JOTOBA_URL = 'https://jotoba.de'
+axios.defaults.baseURL = `${JOTOBA_URL}/api/search`
+
 axios.interceptors.response.use(null, error => {
   const expectedError =
     error.response &&
