@@ -19,7 +19,13 @@
   },
   "plugins": ["@typescript-eslint", "react", "react-hooks"],
   "rules": {
-    "indent": ["error", 2, { "ignoredNodes": ["TemplateLiteral *"] }],
+    "indent": [
+      "error",
+      2,
+      {
+        "ignoredNodes": ["TemplateLiteral *"]
+      }
+    ],
     "quotes": ["error", "single"],
     "semi": ["error", "never"],
     "max-len": [
@@ -35,12 +41,15 @@
     "no-unused-vars": "off",
     "no-constant-condition": "warn",
     "no-useless-rename": "error",
-    "@typescript-eslint/no-unused-vars": [
-      "warn",
-      { "argsIgnorePattern": "^_" }
-    ],
+    "no-unsafe-optional-chaining": "warn",
     "react-hooks/exhaustive-deps": "off",
     "react/display-name": "warn",
+    "@typescript-eslint/no-unused-vars": [
+      "warn",
+      {
+        "argsIgnorePattern": "^_"
+      }
+    ],
     "@typescript-eslint/prefer-nullish-coalescing": "warn",
     "@typescript-eslint/no-empty-function": "off",
     "@typescript-eslint/no-explicit-any": "off",

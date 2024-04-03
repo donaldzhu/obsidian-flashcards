@@ -52,16 +52,12 @@ export const mightInclude = <T, K>(array: readonly T[], element: T | K): element
 export const arrayify = <T>(possibleArray: T | T[]) =>
   Array.isArray(possibleArray) ? possibleArray : [possibleArray]
 
-export const truncateDefinition = (definition: string, length = 100) =>
-  _.truncate(definition, {
-    length,
-    separator: /(\.{3})?,? +/
-  })
-
-
 export const extract = <O extends object, K extends keyof O>(array: O[], key: K) =>
   array.map(elem => elem[key])
 
 export type Tuple<T, N extends number> = N extends N ?
   number extends N ? T[] : _TupleOf<T, N, []> : never
 type _TupleOf<T, N extends number, R extends unknown[]> = R['length'] extends N ? R : _TupleOf<T, N, [T, ...R]>
+
+export const wrapAround = (value: number, size: number) =>
+  ((value % size) + size) % size

@@ -28,15 +28,16 @@
     "obsidian": "latest",
     "rollup": "^2.60.0",
     "tslib": "^2.6.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "xml2js": "^0.6.2"
   },
   "dependencies": {
+    "@popperjs/core": "^2.11.8",
+    "@uidotdev/usehooks": "^2.4.1",
     "axios": "^1.6.7",
     "capitalize": "^2.0.4",
     "lodash": "^4.17.21",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "unofficial-jisho-api": "^2.3.4",
-    "xml2js": "^0.6.2"
+    "react-dom": "^18.2.0"
   }
 }

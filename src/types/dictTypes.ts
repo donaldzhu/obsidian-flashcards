@@ -1,3 +1,5 @@
+import type jmDictIndices from '../data/JMdictIndices'
+
 type JMDictProps<T extends string, K extends string> =
   Record<T, string[]> & Partial<Record<K, string[]>>
 
@@ -30,6 +32,8 @@ export interface JMDictData {
   data?: Map<string, JMDictEntry[]>
   promise: Promise<string>
 }
+
+export type JMDictMap = Record<typeof jmDictIndices[number], JMDictData>
 
 interface JotobaKanji {
   literal: string
@@ -65,7 +69,7 @@ export type JotobaPos =
   'Auxilary' |
   'AuxilaryAdj' |
   'AuxilaryVerb' |
-  'Conjuction' |
+  'Conjunction' |
   undefined |
   'Counter' |
   'Expr' |
@@ -116,6 +120,10 @@ export type JotobaPos =
     'IchidanZuru'
   >
 
+export interface JotobaPitch {
+  part: string,
+  high: boolean
+}
 
 interface JotobaWords {
   reading: {
@@ -130,10 +138,7 @@ interface JotobaWords {
     language: string
   }[],
   audio?: string,
-  pitch?: {
-    part: string
-    high: boolean
-  }[]
+  pitch?: JotobaPitch[]
 }
 
 export interface JotobaWordsRes {
@@ -155,7 +160,7 @@ export interface JotobaFuzzyResult {
   kana: string
   definitions: string[][]
   partsOfSpeech: JotobaPos[][]
-  pitch?: string
+  pitch?: JotobaPitch[]
   audio?: string
   isCommon: boolean
 }

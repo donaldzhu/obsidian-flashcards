@@ -1,74 +1,82 @@
 import fs from 'fs/promises'
-import _ from 'lodash'
-import { FileSystemAdapter, Plugin } from 'obsidian'
+import { Plugin } from 'obsidian'
 
-import { CreateCardModal } from './createCardModal'
-import { VIEW_TYPE_REACT_EXAMPLE } from './reactView'
-import settings from './settings'
-import { typedKeys } from './utils/util'
+import jmDictIndices from './data/JMdictIndices'
+import { CreateCardModal } from './modals/createCardModal'
+import { PLUGIN_SUBPATH } from './settings/constants'
 
 import type { WorkspaceLeaf } from 'obsidian'
 import type { CardInterface } from './types/cardTypes'
-import type { JMDictData } from './types/dictTypes'
-
+import type { JMDictData, JMDictMap } from './types/dictTypes'
 export default class ExamplePlugin extends Plugin {
+  private pluginPath: string
+
+  constructor(...args: ConstructorParameters<typeof Plugin>) {
+    super(...args)
+    this.pluginPath =
+      //@ts-expect-error
+      app.vault.adapter.basePath +
+      PLUGIN_SUBPATH
+  }
+
   async onload() {
-    const jmdict: JMDictData = {
-      data: undefined,
-      promise: fs.readFile(
-        //@ts-expect-error
-        app.vault.adapter.basePath +
-        '/.obsidian/plugins/view-test/src/data/JMdict.json', 'utf-8'
-      )
-    }
+    const jmDictMap = jmDictIndices.reduce((dictMap, char) => {
+      const dict: JMDictData = {
+        data: undefined,
+        promise: fs.readFile(
+          `${this.pluginPath}/src/data/JMDict/${char}.json`,
+          'utf-8'
+        )
+      }
 
-    jmdict.promise.then(result =>
-      jmdict.data = new Map(_.toPairs(JSON.parse(result))))
+      dict.promise.then(result =>
+        dict.data = new Map(JSON.parse(result)))
 
+      dictMap[char] = dict
+      return dictMap
+    }, {} as JMDictMap)
+
+
+    this.loadFontAwesome()
     this.addCommand({
       id: 'create-flashcard',
       name: 'Create Flashcard',
       callback: () =>
-        new CreateCardModal(this.app, this.createCard, jmdict).open(),
+        new CreateCardModal(
+          this.createCard,
+          jmDictMap
+        ).open(),
     })
   }
 
   async onunload() {
   }
 
-  async activateView() {
-    const { workspace } = this.app
-
-    let leaf: WorkspaceLeaf | null = null
-    const leaves = workspace.getLeavesOfType(VIEW_TYPE_REACT_EXAMPLE)
-
-    if (leaves.length > 0) {
-      // A leaf with our view already exists, use that
-      leaf = leaves[0]
-    } else {
-      // Our view could not be found in the workspace, create a new leaf
-      // in the right sidebar for it
-      leaf = workspace.getLeaf(false)
-      await leaf.setViewState({ type: VIEW_TYPE_REACT_EXAMPLE, active: true })
-    }
-
-    // 'Reveal' the leaf in case it is in a collapsed sidebar
-    workspace.revealLeaf(leaf)
+  async loadFontAwesome() {
+    const head = document.getElementsByTagName('head')[0]
+    const script = document.createElement('script')
+    script.type = 'text/javascript'
+    script.crossOrigin = 'anonymous'
+    script.src = 'https://kit.fontawesome.com/0099ddf8ab.js'
+    head.appendChild(script)
   }
 
   async createCard(data: CardInterface) {
-    const adapter = app.vault.adapter
-    if (!(adapter instanceof FileSystemAdapter)) return
 
-    const parsedData = { ...data }
 
-    const frontmatter = '---' + typedKeys(parsedData).reduce((prev, curr) =>
-      `${prev}\n${curr}: ${parsedData[curr]}`, ''
-    ) + '\n---'
+    console.log('Card Data: ', data)
+    // const adapter = app.vault.adapter
+    // if (!(adapter instanceof FileSystemAdapter)) return
 
-    this.app.vault.create(
-      `${settings.FOLDER_NAME}/${parsedData.solution}.md`,
-      frontmatter
-    )
+    // const parsedData = { ...data }
+
+    // const frontmatter = '---' + typedKeys(parsedData).reduce((prev, curr) =>
+    //   `${prev}\n${curr}: ${parsedData[curr]}`, ''
+    // ) + '\n---'
+
+    // this.app.vault.create(
+    //   `${settings.FOLDER_NAME}/${parsedData.solution}.md`,
+    //   frontmatter
+    // )
   }
 }

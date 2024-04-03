@@ -26,11 +26,85 @@
     font-style: italic;
     font-size: var(--font-ui-smaller);
     line-height: var(--line-height-tight);
-    margin-bottom: 0;
   }
 
-  p,
-  ul {
-    margin-block-start: 0.4em;
+  &.community-modal-search-results {
+    p.parts-of-speech {
+      margin-bottom: 0;
+    }
+
+    p,
+    ul {
+      margin-block-start: 0.4em;
+    }
+  }
+
+  .solution-header-wrapper {
+    display: flex;
+    align-items: center;
+    margin-block-end: var(--p-spacing);
+
+    h1 {
+      margin: 0;
+    }
+
+    .pitch-wrapper {
+      margin-top: 0.8em;
+      margin-left: 1em;
+
+      h2 {
+        font-size: 1.2em;
+        font-weight: normal;
+        margin: 0;
+
+        $border: 1px var(--ax3) solid;
+
+        .pitch-low {
+          border-bottom: $border;
+        }
+
+        .pitch-high {
+          border-left: $border;
+          border-top: $border;
+        }
+
+        .pitch-drop {
+          border-right: $border;
+        }
+
+        span {
+          padding: 0.25em;
+        }
+      }
+    }
+
+    .audio-wrapper {
+      display: flex;
+      align-items: center;
+
+      margin: 0.8em 0 0 0.8em;
+
+      i {
+        font-size: 0.95em;
+        padding: 25%;
+        cursor: pointer;
+      }
+    }
+  }
+
+  .metadata-property-value {
+    margin-top: 0.8em;
+  }
+
+  .multi-select-container {
+    padding: 0;
+  }
+
+  .solution-card-wrapper {
+    padding-bottom: 1em;
+
+    ul {
+      margin-block-end: 0.4em;
+    }
   }
 }

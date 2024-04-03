@@ -1,14 +1,13 @@
 import _ from 'lodash'
 
 import miscMap from '../data/miscMap'
+import { CSS_CLASSES } from '../settings/constants'
 import { extract, filterFalsy, mapObject, mightInclude, validateString } from '../utils/util'
 import httpServices, { JOTOBA_URL } from './httpServices'
 
 import type { Falsey } from 'lodash'
-import type { JotobaFuzzyResult, JotobaSentence, JotobaWordsRes, JotobaPos, JMDictEntry } from '../types/dictTypes'
+import type { JotobaFuzzyResult, JotobaSentence, JotobaWordsRes, JotobaPos, JMDictEntry, JotobaPitch } from '../types/dictTypes'
 import type { ParsedPos, ParsedSentence } from '../types/cardTypes'
-
-
 const getConfig = (word: string) => ({
   query: word,
   language: 'English'
@@ -23,8 +22,7 @@ const fuzzySearch = async (word: string): Promise<JotobaFuzzyResult[]> => {
       ...reading,
       definitions: extract(senses, 'glosses'),
       partsOfSpeech: extract(senses, 'pos'),
-      pitch: pitch?.reduce((prev, curr, i) =>
-        `${prev}${curr.high ? '/' : i ? '\\' : ''}${curr.part}`, ''),
+      pitch,
       audio: audio ? JOTOBA_URL + audio : undefined,
       isCommon: common
     }))
@@ -36,9 +34,23 @@ const furiganaToRuby = (furigana: string) => {
     /\[[一-龠ぁ-ゔァ-ヴーa-zA-Z0-9ａ-ｚＡ-Ｚ０-９々〆〤ヶ|]*\]/gui,
     match => {
       const furiganaArray = match.slice(1, -1).split('|')
-      const kanji = furiganaArray.shift()?.split('') ?? []
-      return `<ruby>${furiganaArray.map((kana, i) =>
-        `${kanji[i]}<rt>${kana}</rt>`).join('')}</ruby>`
+      const [kanjis, kanas] = _.partition(furiganaArray, string => !string.match(/[ぁ-ゔ]/))
+      const kanji = kanjis[0]
+
+      const furiganaPairs: {
+        kana: string,
+        kanji: string
+      }[] = []
+      kanas.forEach((kana, i) => {
+        const isLastKana = i === kanas.length - 1
+        if (isLastKana) furiganaPairs.push({ kana, kanji: kanji.slice(i) })
+        else {
+          furiganaPairs.push({ kana, kanji: kanji[i] })
+        }
+      })
+
+      return furiganaPairs.map(({ kana, kanji }) =>
+        `<ruby>${kanji}<rt>${kana}</rt></ruby>`).join('')
     }
   )
 }
@@ -75,7 +87,7 @@ const parseDictPos = (pos: JotobaPos): ParsedPos => {
     if (pos === 'Expr') return result.type = 'expression'
 
     if (mightInclude([
-      'Conjuction',
+      'Conjunction',
       'Counter',
       'Interjection',
       'Numeric',
@@ -154,10 +166,14 @@ const parseDictPos = (pos: JotobaPos): ParsedPos => {
       const irregularType = verbType.Irregular
 
       if (irregularType === 'Suru' || irregularType === 'SuruSpecial') {
-        result.verbType = 'する'
+        result.verbType = 'irregular'
+        result.verbSpecialSuffix = 'する'
         if (irregularType === 'SuruSpecial') result.tag = 'special'
       }
-      else if (irregularType === 'NounOrAuxSuru') result.verbType = '~する'
+      else if (irregularType === 'NounOrAuxSuru') {
+        result.verbType = 'irregular'
+        result.verbSpecialSuffix = '~する'
+      }
       else {
         result.verbType = 'irregular'
         result.verbSuffix = irregularType === 'Nu' ? 'ぬ' :
@@ -192,16 +208,20 @@ const parseDictPos = (pos: JotobaPos): ParsedPos => {
   return result
 }
 
-const posToText = (parsedPos: ParsedPos[], shorten = false) => {
+const posToText = (parsedPos: ParsedPos[], config?: {
+  shorten?: boolean,
+  prefix?: boolean
+}) => {
   type parsedPosTypes = Exclude<ParsedPos['type'], undefined>
   type extraType = 'auxilary' | 'prefix' | 'suffix'
   type displayPosTypes = parsedPosTypes | extraType
 
+  const { shorten, prefix } = _.defaults(config, { shorten: false, prefix: false })
   const typeAcronymMap: Record<displayPosTypes, string> = {
     adjective: 'adj.',
     adverb: 'adv.',
     coupla: 'coupla',
-    conjuction: 'conj.',
+    conjunction: 'conj.',
     counter: 'ctr.',
     expression: 'expr.',
     interjection: 'interj.',
@@ -297,8 +317,19 @@ const posToText = (parsedPos: ParsedPos[], shorten = false) => {
       if (transitivities.includes('trans.') && transitivities.includes('intrans.'))
         props[1] = []
     }
+
+    let shortenedType = typeMap[type]
+
+    if (prefix && props[0]) {
+      const subtype = props[0]
+      const needsHyphen = subtype[subtype.length - 1] !== 'irreg.'
+      const subtypePrefix = subtype.join('/') + (needsHyphen ? '-' : ' ')
+      shortenedType = validateString(subtype.length, subtypePrefix) + shortenedType
+      props[0] = []
+    }
+
     const propString = props.flat().join(', ')
-    const shortenedType = typeMap[type]
+
     return [shortenedType, propString] satisfies [string, string]
   })
 
@@ -306,13 +337,13 @@ const posToText = (parsedPos: ParsedPos[], shorten = false) => {
 }
 
 const getMisc = (
-  jmdict: Map<string, JMDictEntry[]>,
+  jmDict: Map<string, JMDictEntry[]>,
   kana: string,
   kanji: string | null | undefined,
   definitions: string[],
 ) => {
   const key = kana + validateString(kanji, `|${kanji}`)
-  const entries = jmdict.get(key)
+  const entries = jmDict.get(key)
   if (!entries) return
 
   let senseIndex: number | undefined
@@ -331,11 +362,22 @@ const getMisc = (
   return misc?.map(m => miscMap[m.slice(1, -1) as keyof typeof miscMap])
 }
 
+const parsePitch = (pitch: JotobaPitch[]) => filterFalsy(
+  pitch.map(({ part, high }, i) => {
+    const className = !high ?
+      CSS_CLASSES.PITCH_LOW :
+      (CSS_CLASSES.PITCH_HIGH + validateString(pitch[i + 1]?.high === false, ` ${CSS_CLASSES.PITCH_DROP}`))
+    return part ? createSpan({ cls: className, text: part }) : undefined
+  })
+)
+
+
 const dictServices = {
   fuzzySearch,
   furiganaToRuby,
   searchSentence,
   parseDictPos,
+  parsePitch,
   posToText,
   getMisc
 }

@@ -21,11 +21,65 @@
   font-style: italic;
   font-size: var(--font-ui-smaller);
   line-height: var(--line-height-tight);
+}
+.create-card-setting-wrapper.community-modal-search-results p.parts-of-speech {
   margin-bottom: 0;
 }
-.create-card-setting-wrapper p,
-.create-card-setting-wrapper ul {
+.create-card-setting-wrapper.community-modal-search-results p,
+.create-card-setting-wrapper.community-modal-search-results ul {
   margin-block-start: 0.4em;
+}
+.create-card-setting-wrapper .solution-header-wrapper {
+  display: flex;
+  align-items: center;
+  margin-block-end: var(--p-spacing);
+}
+.create-card-setting-wrapper .solution-header-wrapper h1 {
+  margin: 0;
+}
+.create-card-setting-wrapper .solution-header-wrapper .pitch-wrapper {
+  margin-top: 0.8em;
+  margin-left: 1em;
+}
+.create-card-setting-wrapper .solution-header-wrapper .pitch-wrapper h2 {
+  font-size: 1.2em;
+  font-weight: normal;
+  margin: 0;
+}
+.create-card-setting-wrapper .solution-header-wrapper .pitch-wrapper h2 .pitch-low {
+  border-bottom: 1px var(--ax3) solid;
+}
+.create-card-setting-wrapper .solution-header-wrapper .pitch-wrapper h2 .pitch-high {
+  border-left: 1px var(--ax3) solid;
+  border-top: 1px var(--ax3) solid;
+}
+.create-card-setting-wrapper .solution-header-wrapper .pitch-wrapper h2 .pitch-drop {
+  border-right: 1px var(--ax3) solid;
+}
+.create-card-setting-wrapper .solution-header-wrapper .pitch-wrapper h2 span {
+  padding: 0.25em;
+}
+.create-card-setting-wrapper .solution-header-wrapper .audio-wrapper {
+  display: flex;
+  align-items: center;
+  margin: 0.8em 0 0 0.8em;
+}
+.create-card-setting-wrapper .solution-header-wrapper .audio-wrapper i {
+  font-size: 0.95em;
+  padding: 25%;
+  cursor: pointer;
+}
+.create-card-setting-wrapper .metadata-property-value {
+  margin-top: 0.8em;
+}
+.create-card-setting-wrapper .multi-select-container {
+  padding: 0;
+}
+.create-card-setting-wrapper .solution-card-wrapper {
+  padding-bottom: 1em;
+}
+.create-card-setting-wrapper .solution-card-wrapper ul {
+  margin-block-end: 0.4em;
 }
 
 /*# sourceMappingURL=styles.css.map */

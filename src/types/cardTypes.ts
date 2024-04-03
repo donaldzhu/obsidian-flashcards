@@ -1,4 +1,5 @@
 import type miscMap from '../data/miscMap'
+import type { JotobaPitch } from './dictTypes'
 
 export interface ParsedDefinition {
   translations: string[],
@@ -17,7 +18,7 @@ export interface ParsedPos {
   | 'adjective'
   | 'adverb'
   | 'coupla'
-  | 'conjuction'
+  | 'conjunction'
   | 'counter'
   | 'expression'
   | 'interjection'
@@ -29,9 +30,9 @@ export interface ParsedPos {
   tag?: 'irregular' | 'special' | '二段' | '四段' | '〜の' | '〜と'
   adjType?: 'い' | 'く' | 'な' | 'しく' | 'たる'
   adjSpecialSuffix?: 'いい/よい' | 'なり'
-  verbType?: 'る' | 'う' | 'する' | '~する' | 'irregular'
+  verbType?: 'る' | 'う' | 'irregular'
   verbSuffix?: 'ぶ' | 'ぐ' | 'く' | 'む' | 'ぬ' | 'る' | 'す' | 'つ' | 'う'
-  verbSpecialSuffix?: 'くれる' | 'ある' | 'いく' | 'ずる' | 'くる'
+  verbSpecialSuffix?: 'くれる' | 'ある' | 'いく' | 'ずる' | 'くる' | 'する' | '~する'
   isPrefix: boolean
   isSuffix: boolean
   isAuxilary: boolean
@@ -43,11 +44,14 @@ export interface ParsedPos {
 export interface CardInterface {
   solution: string
   definitions: ParsedDefinition[]
-  pitch: string
-  audio: string
-  kanji: string | null
+  pitch?: JotobaPitch[]
+  audio?: string
+  kanji?: string | null
   kana: string
-  sentences: ParsedSentence[]
-  partsOfSpeech: ParsedPos[]
+  sentences?: ParsedSentence[]
+  definitionAlias?: string,
+  solutionAlias?: string,
+  tags: string[],
+  lesson?: string
 }
 
