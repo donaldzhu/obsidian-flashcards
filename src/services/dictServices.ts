@@ -26,7 +26,13 @@ const fuzzySearch = async (word: string): Promise<JotobaFuzzyResult[]> => {
       audio: audio ? JOTOBA_URL + audio : undefined,
       isCommon: common
     }))
-    .sort((a, b) => a.isCommon && !b.isCommon ? -1 : 1)
+    .sort((a, b) => {
+      const oneMatches = (toMatch?: string, notToMatch?: string) =>
+        toMatch === word && notToMatch !== word
+      if (oneMatches(a.kanji, b.kanji) || oneMatches(a.kana, b.kana)) return -1
+      if (oneMatches(b.kanji, a.kanji) || oneMatches(b.kana, a.kana)) return 1
+      return a.isCommon && !b.isCommon ? -1 : 1
+    })
 }
 
 const furiganaToRuby = (furigana: string) => {
@@ -60,7 +66,7 @@ const searchSentence = async (word: string): Promise<ParsedSentence[]> => {
   const sentences = ((await httpServices.post('sentences', jotobaConfig))
     .data.sentences as JotobaSentence[])
     .slice(0, 10)
-    .map(sentence => _.pick(sentence, ['content', 'furigana', 'translation']))
+    .map(sentence => _.pick(sentence, ['furigana', 'translation']))
   return sentences
 }
 
@@ -357,7 +363,7 @@ const getMisc = (
     }
   })
 
-  if (!entry || !senseIndex) return
+  if (!entry || senseIndex === undefined) return
   const { misc } = entry.sense[senseIndex]
   return misc?.map(m => miscMap[m.slice(1, -1) as keyof typeof miscMap])
 }

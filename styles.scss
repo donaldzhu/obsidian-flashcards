@@ -23,7 +23,6 @@
   }
 
   p.parts-of-speech {
-    font-style: italic;
     font-size: var(--font-ui-smaller);
     line-height: var(--line-height-tight);
   }
@@ -51,6 +50,7 @@
     .pitch-wrapper {
       margin-top: 0.8em;
       margin-left: 1em;
+
 
       h2 {
         font-size: 1.2em;

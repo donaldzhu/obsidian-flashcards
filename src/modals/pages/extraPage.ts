@@ -5,7 +5,6 @@ import dictServices from '../../services/dictServices'
 import { CSS_CLASSES, DEFAULT_SETTINGS, NATIVE_CLASSES } from '../../settings/constants'
 import GenericTextSuggester from '../../suggesters/genericTextSuggest'
 import TagSuggester from '../../suggesters/tagSuggest'
-import { memoize } from '../../utils/modalUtils'
 import { validateString } from '../../utils/util'
 import CreateCardModalPage from '../createCardModalPage'
 import { ModalPage } from '../createCardModalTypes'
@@ -14,8 +13,12 @@ import type { CreateCardModal } from '../createCardModal'
 import type { ModalElem } from '../createCardModalTypes'
 import type { CardInterface } from '../../types/cardTypes'
 
+const getPropKey = (key: keyof typeof DEFAULT_SETTINGS.PROP_KEYS) => {
+  return `${DEFAULT_SETTINGS.PROP_PREFIX} ${DEFAULT_SETTINGS.PROP_KEYS[key]}`
+}
+
 const renderTags = (modal: CreateCardModal, templateElems: ModalElem) => {
-  const { settingWrapper } = templateElems
+  const { pageWrapper: settingWrapper } = templateElems
   const tagsOuterWrapper = settingWrapper.querySelector(`.${NATIVE_CLASSES.METADATA_PROPERTY_VALUE}`)
   const tagsWrapper = settingWrapper.querySelector(`.${NATIVE_CLASSES.MULTI_SELECT_CONTAINER}`)
 
@@ -48,17 +51,17 @@ const renderTags = (modal: CreateCardModal, templateElems: ModalElem) => {
   })
 }
 
-const extraPage = new CreateCardModalPage(
+const createExtraPage = () => new CreateCardModalPage(
   'Review Flashcard',
   'Submit',
   (modal, templateElems) => {
-    const { settingWrapper } = templateElems
+    const { pageWrapper: settingWrapper } = templateElems
     console.log('Results:', modal.result)
 
     const { solution, kana, definitions, audio, pitch } = modal.result
     if (!kana || !definitions) return
 
-    const { partsOfSpeech } = definitions[0]
+    const { partsOfSpeech, misc } = definitions[0]
 
     const cardWrapper = settingWrapper.createDiv({
       cls: CSS_CLASSES.SOLUTION_CARD_WRAPPER
@@ -97,11 +100,20 @@ const extraPage = new CreateCardModalPage(
       return `${type} ${props ? `<span class='${NATIVE_CLASSES.POS}'>(${props})</span>` : ''}`
     })
 
-    const posElem = cardWrapper
+    const miscWrapper = cardWrapper
       .createEl('p', { cls: CSS_CLASSES.POS })
-      .createEl('i')
 
+    const posElem = miscWrapper
+      .createEl('i')
     posElem.innerHTML = posHtmlArray.join(', ')
+
+    const miscs = _.intersection(misc ?? [], ['Kana Only', 'Archaic', 'Obsolete', 'Rare'])
+
+    // TODO
+    miscs.forEach(text => miscWrapper.createSpan({
+      cls: 'flair mod-flat', text
+    }))
+
     const ulElem = cardWrapper.createEl('ul')
 
     definitions[0].translations.forEach(text =>
@@ -137,7 +149,7 @@ const extraPage = new CreateCardModalPage(
       .setDesc('Additional Tags.')
       .addText(text => new TagSuggester(
         text.inputEl,
-        DEFAULT_SETTINGS.PROP_KEYS.TAGS,
+        getPropKey('TAGS'),
         tags.value,
         {
           subfolder: DEFAULT_SETTINGS.SUBFOLDER,
@@ -153,7 +165,7 @@ const extraPage = new CreateCardModalPage(
       .setDesc('The textbook lesson that the entry is from.')
       .addText(text => {
         const tags = TagSuggester.getTags(
-          DEFAULT_SETTINGS.PROP_KEYS.LESSON,
+          getPropKey('LESSON'),
           DEFAULT_SETTINGS.SUBFOLDER
         )
         text.onChange(value => lesson.value = value)
@@ -183,12 +195,12 @@ const extraPage = new CreateCardModalPage(
   },
   {
     data: {
-      definitionAlias: memoize(''),
-      solutionAlias: memoize(''),
-      tags: memoize([]),
-      lesson: memoize('')
+      definitionAlias: '',
+      solutionAlias: '',
+      tags: [],
+      lesson: ''
     }
   }
 )
 
-export default extraPage
+export default createExtraPage

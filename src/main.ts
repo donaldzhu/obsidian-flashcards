@@ -1,13 +1,21 @@
 import fs from 'fs/promises'
-import { Plugin } from 'obsidian'
+import _, { has } from 'lodash'
+import {
+  FileSystemAdapter, Notice, Plugin, TAbstractFile, TFile, TFolder, WorkspaceLeaf
+} from 'obsidian'
+import path from 'path'
+import { v4 as uuidv4 } from 'uuid'
 
 import jmDictIndices from './data/JMdictIndices'
 import { CreateCardModal } from './modals/createCardModal'
-import { PLUGIN_SUBPATH } from './settings/constants'
+import { DEFAULT_SETTINGS, PLUGIN_SUBPATH } from './settings/constants'
+import { truncateDefList } from './utils/dictUtils'
+import { getDate } from './utils/obsidianUtil'
+import { loopObject, typedKeys } from './utils/util'
 
-import type { WorkspaceLeaf } from 'obsidian'
 import type { CardInterface } from './types/cardTypes'
 import type { JMDictData, JMDictMap } from './types/dictTypes'
+
 export default class ExamplePlugin extends Plugin {
   private pluginPath: string
 
@@ -28,14 +36,11 @@ export default class ExamplePlugin extends Plugin {
           'utf-8'
         )
       }
-
       dict.promise.then(result =>
         dict.data = new Map(JSON.parse(result)))
-
       dictMap[char] = dict
       return dictMap
     }, {} as JMDictMap)
-
 
     this.loadFontAwesome()
     this.addCommand({
@@ -43,13 +48,10 @@ export default class ExamplePlugin extends Plugin {
       name: 'Create Flashcard',
       callback: () =>
         new CreateCardModal(
-          this.createCard,
+          this.submitCard.bind(this),
           jmDictMap
         ).open(),
     })
-  }
-
-  async onunload() {
   }
 
   async loadFontAwesome() {
@@ -61,22 +63,133 @@ export default class ExamplePlugin extends Plugin {
     head.appendChild(script)
   }
 
-  async createCard(data: CardInterface) {
+  async submitCard(data: CardInterface) {
+    const file = await this.createCard(data)
+    if (!file) return
+    const leaf = app.workspace.getLeaf('tab')
+    if (file && file instanceof TFile)
+      leaf.openFile(file)
+  }
 
-
+  private async createCard(data: CardInterface) {
     console.log('Card Data: ', data)
-    // const adapter = app.vault.adapter
-    // if (!(adapter instanceof FileSystemAdapter)) return
+    const adapter = app.vault.adapter
+    if (!(adapter instanceof FileSystemAdapter)) return
 
-    // const parsedData = { ...data }
+    const parsedData = {
+      id: uuidv4(),
+      ..._.omit(data, ['definitions', 'pitch', 'sentences']),
+    }
 
-    // const frontmatter = '---' + typedKeys(parsedData).reduce((prev, curr) =>
-    //   `${prev}\n${curr}: ${parsedData[curr]}`, ''
-    // ) + '\n---'
+    const frontmatter =
+      `---\ncreation date: ${getDate()}` +
+      typedKeys(parsedData).reduce((prev, curr) => {
+        let unformattedValue = parsedData[curr] ?? ''
 
-    // this.app.vault.create(
-    //   `${settings.FOLDER_NAME}/${parsedData.solution}.md`,
-    //   frontmatter
-    // )
+        unformattedValue = Array.isArray(unformattedValue) ?
+          unformattedValue.reduce(
+            (prev, curr) => prev + `\n  - ${curr}`,
+            ''
+          ) : `"${unformattedValue}"`
+        return `${prev}\n${DEFAULT_SETTINGS.PROP_PREFIX} ${curr}: ${unformattedValue}`
+      }, '') +
+      '\n---'
+
+    const content = '```\n' + JSON.stringify(_.pick(data, ['definitions', 'pitch', 'sentences'])) + '\n```'
+    const { definitions, kana, kanji, definitionAlias } = data
+
+    const titleSolution = ((definitions[0].misc?.includes('Kana Only') ?? !kanji) ?
+      kana : kanji
+    ).replaceAll(/(^"|"$)/g, '')
+
+    const titleDefinition = definitionAlias ??
+      truncateDefList(definitions[0].translations, { listLength: 4 })
+    const title = `${titleSolution} - ${titleDefinition}`
+
+    const contnet = frontmatter + '\n' + content
+    const { fileName, hasExisting } = await this.createUniqFile(
+      `${DEFAULT_SETTINGS.SUBFOLDER}/${title}`,
+      contnet
+    )
+
+    const cardName = path.parse(fileName).name
+
+    if (hasExisting) {
+      new Notice(`${cardName}: identical flashcard exists.`, 8000)
+      const file = app.vault.getAbstractFileByPath(fileName)
+      return file instanceof TFile ? file : undefined
+    }
+
+    const existingFile = app.vault.getAbstractFileByPath(fileName)
+    if (existingFile) throw new Error(`Failed to create new file '${fileName}' - file already exists.`)
+
+    new Notice(`${cardName}: flashcard created.`, 8000) // TODO
+    return await this.app.vault.create(
+      fileName, contnet
+    )
+  }
+
+  private async createUniqFile(fileName: string, content: string) {
+    let hasExisting = false
+
+    const checkExisting = async (fileName: string) => {
+      const file = app.vault.getAbstractFileByPath(fileName)
+      if (!file) return null
+      hasExisting = await this.isSameFile(file, content)
+      return file
+    }
+
+    const withSuffix = (number?: number) => `${fileName}${number ? ` - ${number}` : ''}.md`
+
+    const fileWithSuffix1 = await checkExisting(withSuffix(1))
+    if (fileWithSuffix1) {
+      if (hasExisting) return {
+        fileName: withSuffix(1),
+        hasExisting
+      }
+
+      let suffixNumber = 2
+
+      while (
+        await checkExisting(withSuffix(suffixNumber)) &&
+        suffixNumber < 10000 &&
+        !hasExisting
+      ) suffixNumber++
+
+      return {
+        fileName: withSuffix(suffixNumber),
+        hasExisting
+      }
+    }
+
+    const existingFile = await checkExisting(withSuffix())
+    if (existingFile) {
+      if (hasExisting) return {
+        fileName: withSuffix(2),
+        hasExisting
+      }
+
+      await app.vault.rename(existingFile, withSuffix(1))
+      return {
+        fileName: withSuffix(2),
+        hasExisting
+      }
+    }
+
+    return {
+      fileName: withSuffix(),
+      hasExisting: false
+    }
+  }
+
+  private async isSameFile(
+    targetFile: TAbstractFile,
+    content: string
+  ) {
+    if (!(targetFile instanceof TFile)) return false
+    const removeUniq = (string: string) =>
+      string.replace(/creation date: .*\nflashcard id: ".*"\n/, '')
+    const targetContent = removeUniq(await app.vault.cachedRead(targetFile))
+    return targetContent === removeUniq(content)
   }
 }

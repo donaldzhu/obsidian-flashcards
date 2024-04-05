@@ -1,5 +1,4 @@
 const axios = require('axios')
-const JishoAPI = require('unofficial-jisho-api')
 
 const search = async word => {
   const jotobaRes = (await axios.post('https://jotoba.de/api/search/words', {
@@ -36,8 +35,6 @@ const search = async word => {
 
 const search1 = async word => {
 
-  const jisho = new JishoAPI()
-
   // jisho.searchForPhrase(word).then(result => {
   //   const { senses } = result.data[0]
   //   senses.map(sense => console.log(sense.tags))
@@ -57,11 +54,12 @@ const search1 = async word => {
 
 
   // console.log(words.map(word => word.pitch))
-  console.log(words.map(word => word.senses).map(sense => JSON.stringify((sense[0].pos))))
+  //console.log(words.map(word => word.senses).map(sense => JSON.stringify((sense[0].pos))))
+  console.log(words.map(word => word.senses).map(sense => [sense[0].glosses, sense[0].misc]))
 }
 
 
-search1('あいする')
+search1('臥す')
 
 
 

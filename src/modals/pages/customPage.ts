@@ -3,7 +3,7 @@ import { Setting } from 'obsidian'
 import dictServices from '../../services/dictServices'
 import CreateCardModalPage from '../createCardModalPage'
 
-const createSearchPage = () => new CreateCardModalPage(
+const createCustomPage = () => new CreateCardModalPage(
   'Select Search Result',
   'Select',
   (modal, { pageWrapper: settingWrapper }) => {
@@ -24,4 +24,4 @@ const createSearchPage = () => new CreateCardModalPage(
   }
 )
 
-export default createSearchPage
+export default createCustomPage

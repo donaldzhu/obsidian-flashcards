@@ -1,17 +1,18 @@
 import { CSS_CLASSES, NATIVE_CLASSES } from '../settings/constants'
-import { filterFalsy } from '../utils/util'
+import { memoize } from '../utils/modalUtils'
+import { filterFalsy, mapObject } from '../utils/util'
 
 import type { Falsey } from 'lodash'
 import type { ModalElem } from './createCardModalTypes'
 import type { CreateCardModal } from './createCardModal'
+import type { Memoized } from '../utils/modalUtils'
 
-interface Memoized<T> {
-  reset: () => void
-  value: T
+export type MemoizedObject<T> = {
+  [P in keyof T]: Memoized<T[P]>
 }
 
-class CreateCardModalPage<T extends Record<string, Memoized<any>> | undefined = undefined> {
-  data: T
+class CreateCardModalPage<T extends Record<string, any> = {}> {
+  data: MemoizedObject<T>
   className?: string
 
   constructor(
@@ -24,15 +25,16 @@ class CreateCardModalPage<T extends Record<string, Memoized<any>> | undefined = 
       className?: string
     }
   ) {
-    // @ts-expect-error
-    this.data = config?.data
+    const data = config?.data ?? {}
+
+    this.data = mapObject(data, (_, value) => memoize(value)) as MemoizedObject<T>
     this.className = config?.className
   }
 }
 
 export const renderCard = (
   modal: CreateCardModal,
-  { settingWrapper }: ModalElem,
+  { pageWrapper: settingWrapper }: ModalElem,
   index: number,
   cssClasses?: (string | Falsey)[]
 ) => {

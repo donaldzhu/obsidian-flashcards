@@ -18,7 +18,6 @@
   padding: 0;
 }
 .create-card-setting-wrapper p.parts-of-speech {
-  font-style: italic;
   font-size: var(--font-ui-smaller);
   line-height: var(--line-height-tight);
 }

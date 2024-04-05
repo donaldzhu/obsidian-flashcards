@@ -8,7 +8,6 @@ export interface ParsedDefinition {
 }
 
 export interface ParsedSentence {
-  content: string
   furigana: string
   translation: string
 }

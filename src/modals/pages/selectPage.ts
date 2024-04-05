@@ -2,17 +2,20 @@ import _ from 'lodash'
 
 import dictServices from '../../services/dictServices'
 import { CSS_CLASSES, NATIVE_CLASSES } from '../../settings/constants'
-import { truncateDefinition } from '../../utils/dictUtils'
-import { memoize } from '../../utils/modalUtils'
+import { truncateDef } from '../../utils/dictUtils'
 import CreateCardModalPage, { renderCard } from '../createCardModalPage'
 import { ModalPage } from '../createCardModalTypes'
 
 import type jmDictIndices from '../../data/JMdictIndices'
-const selectPage = new CreateCardModalPage(
+
+const createSelectPage = () => new CreateCardModalPage(
   'Create new flashcard',
   'Search',
   (modal, templateElems) => {
-    if (modal.fuzzyResults.length === 1) return modal.skipPage()
+    if (modal.fuzzyResults.length === 1) {
+      modal.skipPage()
+      return
+    }
 
     modal.fuzzyResults.forEach(({
       furigana,
@@ -36,7 +39,7 @@ const selectPage = new CreateCardModalPage(
       })
 
       resultWrapper.createEl('p', {
-        text: truncateDefinition(definitions[0].join(', '))
+        text: truncateDef(definitions[0].join(', '))
       })
     })
   },
@@ -72,11 +75,9 @@ const selectPage = new CreateCardModalPage(
     console.log('Definitions: ', modal.dictDefinitions)
   },
   {
-    data: {
-      index: memoize(0)
-    },
+    data: { index: 0 },
     className: NATIVE_CLASSES.SETTING_WRAPPER
   }
 )
 
-export default selectPage
+export default createSelectPage

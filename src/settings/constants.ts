@@ -33,8 +33,9 @@ export const PLUGIN_SUBPATH = '/.obsidian/plugins/view-test'
 
 export const DEFAULT_SETTINGS = {
   SUBFOLDER: 'Japanese Flashcards',
+  PROP_PREFIX: 'flashcard',
   PROP_KEYS: {
-    TAGS: 'flashcard-tags',
-    LESSON: 'flashcard-lesson',
+    TAGS: 'tags',
+    LESSON: 'lesson',
   }
 }

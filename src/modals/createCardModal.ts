@@ -4,10 +4,10 @@ import { Modal, Setting } from 'obsidian'
 import { CSS_CLASSES, NATIVE_CLASSES } from '../settings/constants'
 import { loopObject } from '../utils/util'
 import { ModalPage } from './createCardModalTypes'
-import definitionPage from './pages/definitionPage'
-import extraPage from './pages/extraPage'
-import searchPage from './pages/searchPage'
-import selectPage from './pages/selectPage'
+import createDefinitionPage from './pages/definitionPage'
+import createExtraPage from './pages/extraPage'
+import createSearchPage from './pages/searchPage'
+import createSelectPage from './pages/selectPage'
 
 import type { ModalElem, OnSubmitType, PartialModalElem } from './createCardModalTypes'
 import type CreateCardModalPage from './createCardModalPage'
@@ -23,15 +23,15 @@ export class CreateCardModal extends Modal {
   dictDefinitions: ParsedDefinition[]
 
   private pageNumber: number
-  private pages: [
+  pages: [
     CreateCardModalPage,
-    CreateCardModalPage<{ index: Memoized<number> }>,
-    CreateCardModalPage<{ index: Memoized<number> }>,
+    CreateCardModalPage<{ index: number }>,
+    CreateCardModalPage<{ index: number }>,
     CreateCardModalPage<{
-      definitionAlias: Memoized<string>,
-      solutionAlias: Memoized<string>,
-      tags: Memoized<string[]>,
-      lesson: Memoized<string>
+      definitionAlias: string,
+      solutionAlias: string,
+      tags: string[],
+      lesson: string
     }>
   ]
 
@@ -40,7 +40,7 @@ export class CreateCardModal extends Modal {
 
   private templateElems: PartialModalElem
 
-  private buttonIsDisabled: boolean
+  buttonIsDisabled: boolean
 
   constructor(
     public onSubmit: OnSubmitType,
@@ -66,13 +66,18 @@ export class CreateCardModal extends Modal {
     this.dictDefinitions = []
 
     this.pageNumber = -1
-    this.pages = [searchPage, selectPage, definitionPage, extraPage]
+    this.pages = [
+      createSearchPage(),
+      createSelectPage(),
+      createDefinitionPage(),
+      createExtraPage()
+    ]
 
     this.onPageUnmount = undefined
     this.isToNextPage = true
 
     this.templateElems = {
-      settingWrapper: undefined,
+      pageWrapper: undefined,
       title: undefined,
       nextButton: undefined,
       backButton: undefined,
@@ -89,7 +94,7 @@ export class CreateCardModal extends Modal {
     app.keymap.pushScope(this.scope)
 
     this.templateElems.title = contentEl.createEl('h1')
-    this.templateElems.settingWrapper = contentEl.createDiv()
+    this.templateElems.pageWrapper = contentEl.createDiv()
 
     new Setting(contentEl)
       .addButton(btn => {
@@ -105,10 +110,7 @@ export class CreateCardModal extends Modal {
         this.templateElems.nextButton = btn
         btn
           .setCta()
-          .onClick(() => {
-            if (this.initialQuery)
-              this.toNextPage()
-          })
+          .onClick(() => this.toNextPage())
       })
 
     this.toNextPage()
@@ -151,7 +153,7 @@ export class CreateCardModal extends Modal {
     if (!page) return
 
     const { header, btnText, className } = page
-    const { settingWrapper, title, nextButton, backButton } = this.templateElems
+    const { pageWrapper: settingWrapper, title, nextButton, backButton } = this.templateElems
     settingWrapper.empty()
 
     settingWrapper.className = CSS_CLASSES.SETTING_WRAPPER
@@ -164,8 +166,8 @@ export class CreateCardModal extends Modal {
     setTimeout(() => this.buttonIsDisabled = false, 100)
   }
 
-  skipPage() {
-    if (this.isToNextPage) this.toNextPage()
+  async skipPage() {
+    if (this.isToNextPage) await this.toNextPage()
     else this.toPrevPage()
   }
 
@@ -175,7 +177,7 @@ export class CreateCardModal extends Modal {
     this.getPageData(this.pageNumber === ModalPage.Result ?
       ModalPage.Result : ModalPage.Definition).index.value = resultIndex
 
-    const { settingWrapper } = this.templateElems
+    const { pageWrapper: settingWrapper } = this.templateElems
     const { CARD, IS_SELECTED: CARD_IS_SELECTED } = NATIVE_CLASSES
 
     const resultWrappers = Array.from(settingWrapper

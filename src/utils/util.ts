@@ -1,5 +1,3 @@
-import _ from 'lodash'
-
 import type { Falsey } from 'lodash'
 
 export function typedKeys<T extends object>(object: T): (keyof T)[]
@@ -49,9 +47,6 @@ export const mightInclude = <T, K>(array: readonly T[], element: T | K): element
   return array.includes(element as unknown as T)
 }
 
-export const arrayify = <T>(possibleArray: T | T[]) =>
-  Array.isArray(possibleArray) ? possibleArray : [possibleArray]
-
 export const extract = <O extends object, K extends keyof O>(array: O[], key: K) =>
   array.map(elem => elem[key])
 
@@ -61,3 +56,7 @@ type _TupleOf<T, N extends number, R extends unknown[]> = R['length'] extends N 
 
 export const wrapAround = (value: number, size: number) =>
   ((value % size) + size) % size
+
+export const unquote = () => {
+
+}

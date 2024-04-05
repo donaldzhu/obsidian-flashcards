@@ -2,12 +2,11 @@ import _ from 'lodash'
 
 import dictServices from '../../services/dictServices'
 import { CSS_CLASSES, NATIVE_CLASSES } from '../../settings/constants'
-import { truncateDefinition } from '../../utils/dictUtils'
-import { memoize } from '../../utils/modalUtils'
+import { truncateDefList } from '../../utils/dictUtils'
 import CreateCardModalPage, { renderCard } from '../createCardModalPage'
 import { ModalPage } from '../createCardModalTypes'
 
-const definitionPage = new CreateCardModalPage(
+const createDefinitionPage = () => new CreateCardModalPage(
   modal => {
     const furigana = modal.result.solution
     return `Select Primary Definition - ${furigana ?
@@ -15,7 +14,10 @@ const definitionPage = new CreateCardModalPage(
   },
   'Create',
   (modal, templateElems) => {
-    if (modal.dictDefinitions.length === 1) return modal.skipPage()
+    if (modal.dictDefinitions.length === 1) {
+      modal.skipPage()
+      return
+    }
 
     modal.dictDefinitions.forEach(({ translations, partsOfSpeech }, index) => {
       const resultWrapper = renderCard(modal, templateElems, index)
@@ -31,20 +33,15 @@ const definitionPage = new CreateCardModalPage(
 
       const ulElem = resultWrapper.createEl('ul')
 
-      for (
-        let i = 0, trans = translations.slice(0, 3), chars = 0;
-        i < trans.length && chars <= 100;
-        chars += trans[i++].length
-      ) {
-        ulElem.createEl('li', {
-          text: truncateDefinition(trans[i], 80)
-        })
-      }
+      truncateDefList(translations)
+        .forEach(translation =>
+          ulElem.createEl('li', {
+            text: translation
+          }))
     })
   },
   modal => {
     const dictDefinitions = [...modal.dictDefinitions]
-    // const { index } = (this as unknown as typeof definitionPage).data
     const { index } = modal.getPageData(ModalPage.Definition)
     modal.result.definitions = [
       ..._.pullAt(dictDefinitions, index.value),
@@ -53,11 +50,9 @@ const definitionPage = new CreateCardModalPage(
     console.log('Sorted Definitions:', modal.result.definitions)
   },
   {
-    data: {
-      index: memoize(0)
-    },
+    data: { index: 0 },
     className: NATIVE_CLASSES.SETTING_WRAPPER
   }
 )
 
-export default definitionPage
+export default createDefinitionPage
