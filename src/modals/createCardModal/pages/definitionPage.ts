@@ -1,26 +1,28 @@
 import _ from 'lodash'
 
-import dictServices from '../../services/dictServices'
-import { CSS_CLASSES, NATIVE_CLASSES } from '../../settings/constants'
-import { truncateDefList } from '../../utils/dictUtils'
-import CreateCardModalPage, { renderCard } from '../createCardModalPage'
+import dictServices from '../../../services/dictServices'
+import { CSS_CLASSES, NATIVE_CLASSES } from '../../../settings/constants'
+import { truncateDefList } from '../../../utils/dictUtils'
+import CreateModalPage from '../../createModalPage'
 import { ModalPage } from '../createCardModalTypes'
 
-const createDefinitionPage = () => new CreateCardModalPage(
-  modal => {
+import type CreateCardModal from '../createCardModal'
+
+const createDefinitionPage = (modal: CreateCardModal) => new CreateModalPage(
+  () => {
     const furigana = modal.result.solution
     return `Select Primary Definition - ${furigana ?
       dictServices.furiganaToRuby(furigana) : modal.result.kana}`
   },
   'Create',
-  (modal, templateElems) => {
+  () => {
     if (modal.dictDefinitions.length === 1) {
       modal.skipPage()
       return
     }
 
     modal.dictDefinitions.forEach(({ translations, partsOfSpeech }, index) => {
-      const resultWrapper = renderCard(modal, templateElems, index)
+      const resultWrapper = modal.renderCard(index)
 
       const posStringArrays = dictServices.posToText(partsOfSpeech)
       const posHtmlArray = posStringArrays.map(([type, props]) =>
@@ -40,19 +42,16 @@ const createDefinitionPage = () => new CreateCardModalPage(
           }))
     })
   },
-  modal => {
+  () => {
     const dictDefinitions = [...modal.dictDefinitions]
-    const { index } = modal.getPageData(ModalPage.Definition)
+    const { index } = modal.pageData[ModalPage.Definition]
     modal.result.definitions = [
       ..._.pullAt(dictDefinitions, index.value),
       ...dictDefinitions
     ]
     console.log('Sorted Definitions:', modal.result.definitions)
   },
-  {
-    data: { index: 0 },
-    className: NATIVE_CLASSES.SETTING_WRAPPER
-  }
+  NATIVE_CLASSES.SETTING_WRAPPER
 )
 
 export default createDefinitionPage

@@ -56,7 +56,3 @@ type _TupleOf<T, N extends number, R extends unknown[]> = R['length'] extends N 
 
 export const wrapAround = (value: number, size: number) =>
   ((value % size) + size) % size
-
-export const unquote = () => {
-
-}

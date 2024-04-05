@@ -1,3 +1,4 @@
+import { compareJp } from '../utils/dictUtils'
 import { TextInputSuggest } from './textSuggest'
 
 class GenericTextSuggester extends TextInputSuggest<string> {
@@ -10,10 +11,7 @@ class GenericTextSuggester extends TextInputSuggest<string> {
   }
 
   getSuggestions(inputString: string) {
-    const inputLowerCase: string = inputString.toLowerCase()
-
-    const filtered = this.items.filter(item =>
-      item.toLowerCase().contains(inputLowerCase))
+    const filtered = this.items.filter(item => compareJp(item, inputString))
 
     if (!filtered) this.close()
 

@@ -2,6 +2,7 @@ import _ from 'lodash'
 import { TFile } from 'obsidian'
 import path from 'path'
 
+import { compareJp } from '../utils/dictUtils'
 import { filterFalsy } from '../utils/util'
 import { TextInputSuggest } from './textSuggest'
 
@@ -42,7 +43,7 @@ class TagSuggester extends TextInputSuggest<suggestChildren> {
 
     const filtered = tags.filter(item => {
       if (
-        item.toLowerCase().contains(inputLowerCase) &&
+        compareJp(item, inputString) &&
         !this.selectedTags.includes(item)
       ) return true
     })

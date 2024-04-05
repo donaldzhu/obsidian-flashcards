@@ -1,21 +1,20 @@
 import fs from 'fs/promises'
-import _, { has } from 'lodash'
-import {
-  FileSystemAdapter, Notice, Plugin, TAbstractFile, TFile, TFolder, WorkspaceLeaf
-} from 'obsidian'
+import _ from 'lodash'
+import { FileSystemAdapter, Notice, Plugin, TFile } from 'obsidian'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 
 import jmDictIndices from './data/JMdictIndices'
-import { CreateCardModal } from './modals/createCardModal'
+import CreateCardModal from './modals/createCardModal/createCardModal'
+import CreateCustomCardModal from './modals/createCustomCardModal/createCustomCardModal'
 import { DEFAULT_SETTINGS, PLUGIN_SUBPATH } from './settings/constants'
 import { truncateDefList } from './utils/dictUtils'
 import { getDate } from './utils/obsidianUtil'
-import { loopObject, typedKeys } from './utils/util'
+import { typedKeys } from './utils/util'
 
+import type { TAbstractFile } from 'obsidian'
 import type { CardInterface } from './types/cardTypes'
 import type { JMDictData, JMDictMap } from './types/dictTypes'
-
 export default class ExamplePlugin extends Plugin {
   private pluginPath: string
 
@@ -51,6 +50,13 @@ export default class ExamplePlugin extends Plugin {
           this.submitCard.bind(this),
           jmDictMap
         ).open(),
+    })
+
+    this.addCommand({
+      id: 'create-custom-flashcard',
+      name: 'Create Custom Flashcard',
+      callback: () =>
+        new CreateCustomCardModal().open(),
     })
   }
 

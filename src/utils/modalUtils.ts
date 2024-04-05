@@ -13,3 +13,4 @@ export const memoize = <T>(initial: T): Memoized<T> => {
     value: _.cloneDeep(initial)
   }
 }
+

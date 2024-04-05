@@ -1,5 +1,4 @@
 import type { ButtonComponent } from 'obsidian'
-import type { CardInterface } from '../types/cardTypes'
 
 export interface ModalElem {
   pageWrapper: HTMLDivElement
@@ -9,12 +8,3 @@ export interface ModalElem {
 }
 
 export type PartialModalElem = ModalElem | Record<keyof ModalElem, undefined>
-
-export type OnSubmitType = (result: CardInterface) => void
-
-export enum ModalPage {
-  Search,
-  Result,
-  Definition,
-  Extra
-}

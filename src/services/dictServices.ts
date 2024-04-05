@@ -37,7 +37,7 @@ const fuzzySearch = async (word: string): Promise<JotobaFuzzyResult[]> => {
 
 const furiganaToRuby = (furigana: string) => {
   return furigana.replaceAll(
-    /\[[一-龠ぁ-ゔァ-ヴーa-zA-Z0-9ａ-ｚＡ-Ｚ０-９々〆〤ヶ|]*\]/gui,
+    /\[[一-龠ぁ-ゔァ-ヴー々〆〤ヶa-zA-Z0-9ａ-ｚＡ-Ｚ０-９|]*\]/gui,
     match => {
       const furiganaArray = match.slice(1, -1).split('|')
       const [kanjis, kanas] = _.partition(furiganaArray, string => !string.match(/[ぁ-ゔ]/))

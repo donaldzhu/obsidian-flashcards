@@ -1,13 +1,15 @@
 import { Setting } from 'obsidian'
 
-import dictServices from '../../services/dictServices'
-import CreateCardModalPage from '../createCardModalPage'
+import dictServices from '../../../services/dictServices'
+import CreateModalPage from '../../createModalPage'
 
-const createSearchPage = () => new CreateCardModalPage(
+import type CreateCardModal from '../createCardModal'
+
+const createSearchPage = (modal: CreateCardModal) => new CreateModalPage(
   'Select Search Result',
   'Select',
-  (modal, { pageWrapper: settingWrapper }) => {
-    const input = new Setting(settingWrapper)
+  ({ pageWrapper }) => {
+    const input = new Setting(pageWrapper)
       .setName('Japanese')
       .addText(text => text
         .setValue(modal.initialQuery)
@@ -18,7 +20,7 @@ const createSearchPage = () => new CreateCardModalPage(
 
     input.controlEl.querySelector('input')?.focus()
   },
-  async modal => {
+  async () => {
     modal.fuzzyResults = await dictServices.fuzzySearch(modal.initialQuery)
     console.log('Fuzzy: ', modal.fuzzyResults)
   }

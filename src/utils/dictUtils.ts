@@ -1,4 +1,5 @@
 import _ from 'lodash'
+import * as wanakana from 'wanakana'
 
 export const truncateDef = (definition: string, length = 100) =>
   _.truncate(definition, {
@@ -12,6 +13,7 @@ interface TruncateDefListConfig {
   maxItem?: number
   listLength?: number
 }
+
 export const truncateDefList = (defList: string[], config?: TruncateDefListConfig) => {
   const { maxTotal = 100, maxItem = 80, listLength = 3 } = config ?? {}
   const results = []
@@ -25,3 +27,19 @@ export const truncateDefList = (defList: string[], config?: TruncateDefListConfi
   return results
 }
 
+
+const hasJp = (inputString: string) =>
+  inputString.match(/一-龠ぁ-ゔァ-ヴー々〆〤ヶ/)
+
+export const compareJp = (targetString: string, inputString: string) => {
+  if (!hasJp(inputString))
+    targetString = wanakana.toRomaji(targetString)
+  return targetString
+    .toLowerCase()
+    .trim()
+    .contains(
+      inputString
+        .toLowerCase()
+        .trim()
+    )
+}

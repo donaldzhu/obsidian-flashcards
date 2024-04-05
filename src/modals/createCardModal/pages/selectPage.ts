@@ -1,17 +1,18 @@
 import _ from 'lodash'
 
-import dictServices from '../../services/dictServices'
-import { CSS_CLASSES, NATIVE_CLASSES } from '../../settings/constants'
-import { truncateDef } from '../../utils/dictUtils'
-import CreateCardModalPage, { renderCard } from '../createCardModalPage'
+import dictServices from '../../../services/dictServices'
+import { CSS_CLASSES, NATIVE_CLASSES } from '../../../settings/constants'
+import { truncateDef } from '../../../utils/dictUtils'
+import CreateModalPage from '../../createModalPage'
 import { ModalPage } from '../createCardModalTypes'
 
-import type jmDictIndices from '../../data/JMdictIndices'
+import type CreateCardModal from '../createCardModal'
+import type jmDictIndices from '../../../data/JMdictIndices'
 
-const createSelectPage = () => new CreateCardModalPage(
+const createSelectPage = (modal: CreateCardModal) => new CreateModalPage(
   'Create new flashcard',
   'Search',
-  (modal, templateElems) => {
+  () => {
     if (modal.fuzzyResults.length === 1) {
       modal.skipPage()
       return
@@ -23,9 +24,7 @@ const createSelectPage = () => new CreateCardModalPage(
       definitions,
       isCommon
     }, index) => {
-      const resultWrapper = renderCard(
-        modal,
-        templateElems,
+      const resultWrapper = modal.renderCard(
         index,
         [!!furigana && CSS_CLASSES.HAS_FURIGANA]
       )
@@ -43,8 +42,8 @@ const createSelectPage = () => new CreateCardModalPage(
       })
     })
   },
-  async modal => {
-    const { index } = modal.getPageData(ModalPage.Result)
+  async () => {
+    const { index } = modal.pageData[ModalPage.Result]
     const result = modal.fuzzyResults[index.value]
     const { furigana, kanji, kana } = result
 
@@ -74,10 +73,7 @@ const createSelectPage = () => new CreateCardModalPage(
 
     console.log('Definitions: ', modal.dictDefinitions)
   },
-  {
-    data: { index: 0 },
-    className: NATIVE_CLASSES.SETTING_WRAPPER
-  }
+  NATIVE_CLASSES.SETTING_WRAPPER
 )
 
 export default createSelectPage

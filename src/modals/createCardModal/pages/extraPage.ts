@@ -1,26 +1,22 @@
 import _ from 'lodash'
 import { Setting } from 'obsidian'
 
-import dictServices from '../../services/dictServices'
-import { CSS_CLASSES, DEFAULT_SETTINGS, NATIVE_CLASSES } from '../../settings/constants'
-import GenericTextSuggester from '../../suggesters/genericTextSuggest'
-import TagSuggester from '../../suggesters/tagSuggest'
-import { validateString } from '../../utils/util'
-import CreateCardModalPage from '../createCardModalPage'
+import dictServices from '../../../services/dictServices'
+import { CSS_CLASSES, DEFAULT_SETTINGS, NATIVE_CLASSES } from '../../../settings/constants'
+import GenericTextSuggester from '../../../suggesters/genericTextSuggest'
+import TagSuggester from '../../../suggesters/tagSuggest'
+import { getPropKey } from '../../../utils/obsidianUtil'
+import { validateString } from '../../../utils/util'
+import CreateModalPage from '../../createModalPage'
 import { ModalPage } from '../createCardModalTypes'
 
-import type { CreateCardModal } from '../createCardModal'
-import type { ModalElem } from '../createCardModalTypes'
-import type { CardInterface } from '../../types/cardTypes'
-
-const getPropKey = (key: keyof typeof DEFAULT_SETTINGS.PROP_KEYS) => {
-  return `${DEFAULT_SETTINGS.PROP_PREFIX} ${DEFAULT_SETTINGS.PROP_KEYS[key]}`
-}
-
+import type CreateCardModal from '../createCardModal'
+import type { ModalElem } from '../../pageModalType'
+import type { CardInterface } from '../../../types/cardTypes'
 const renderTags = (modal: CreateCardModal, templateElems: ModalElem) => {
-  const { pageWrapper: settingWrapper } = templateElems
-  const tagsOuterWrapper = settingWrapper.querySelector(`.${NATIVE_CLASSES.METADATA_PROPERTY_VALUE}`)
-  const tagsWrapper = settingWrapper.querySelector(`.${NATIVE_CLASSES.MULTI_SELECT_CONTAINER}`)
+  const { pageWrapper } = templateElems
+  const tagsOuterWrapper = pageWrapper.querySelector(`.${NATIVE_CLASSES.METADATA_PROPERTY_VALUE}`)
+  const tagsWrapper = pageWrapper.querySelector(`.${NATIVE_CLASSES.MULTI_SELECT_CONTAINER}`)
 
   const isHTMLElem = (element: Element | null): element is HTMLElement =>
     !!(element && (element instanceof HTMLElement))
@@ -30,7 +26,7 @@ const renderTags = (modal: CreateCardModal, templateElems: ModalElem) => {
     !isHTMLElem(tagsOuterWrapper)
   ) return
 
-  const { tags } = modal.getPageData(ModalPage.Extra)
+  const { tags } = modal.pageData[ModalPage.Extra]
 
   tagsOuterWrapper.style.display = validateString(!tags.value.length, 'none')
 
@@ -51,11 +47,11 @@ const renderTags = (modal: CreateCardModal, templateElems: ModalElem) => {
   })
 }
 
-const createExtraPage = () => new CreateCardModalPage(
+const createExtraPage = (modal: CreateCardModal) => new CreateModalPage(
   'Review Flashcard',
   'Submit',
-  (modal, templateElems) => {
-    const { pageWrapper: settingWrapper } = templateElems
+  templateElems => {
+    const { pageWrapper } = templateElems
     console.log('Results:', modal.result)
 
     const { solution, kana, definitions, audio, pitch } = modal.result
@@ -63,7 +59,7 @@ const createExtraPage = () => new CreateCardModalPage(
 
     const { partsOfSpeech, misc } = definitions[0]
 
-    const cardWrapper = settingWrapper.createDiv({
+    const cardWrapper = pageWrapper.createDiv({
       cls: CSS_CLASSES.SOLUTION_CARD_WRAPPER
     })
 
@@ -84,7 +80,7 @@ const createExtraPage = () => new CreateCardModalPage(
 
       const audioPlayer = new Audio(modal.result.audio)
       audioPlayer.load()
-      audioIcon.onclick = audioPlayer.play
+      audioIcon.onclick = () => audioPlayer.play()
     }
 
     if (pitch) {
@@ -129,22 +125,22 @@ const createExtraPage = () => new CreateCardModalPage(
 
     tagsOuterWrapper.style.display = 'none'
 
-    const { definitionAlias, solutionAlias, tags, lesson } = modal.getPageData(ModalPage.Extra)
-    const definitionAliasSetting = new Setting(settingWrapper)
+    const { definitionAlias, solutionAlias, tags, lesson } = modal.pageData[ModalPage.Extra]
+    const definitionAliasSetting = new Setting(pageWrapper)
       .setName('Definition Alias')
       .setDesc('How the flashcard’s English definition will be shown.')
       .addText(text => text
         .setPlaceholder(definitions[0].translations.join(', '))
         .onChange(value => definitionAlias.value = value))
 
-    new Setting(settingWrapper)
+    new Setting(pageWrapper)
       .setName('Solution Alias')
       .setDesc('How the flashcard’s Japanese solution will be shown.')
       .addText(text => text
         .setValue(solution ?? '')
         .onChange(value => solutionAlias.value = value))
 
-    new Setting(settingWrapper)
+    new Setting(pageWrapper)
       .setName('Tags')
       .setDesc('Additional Tags.')
       .addText(text => new TagSuggester(
@@ -160,7 +156,7 @@ const createExtraPage = () => new CreateCardModalPage(
         }
       ))
 
-    new Setting(settingWrapper)
+    new Setting(pageWrapper)
       .setName('Lesson')
       .setDesc('The textbook lesson that the entry is from.')
       .addText(text => {
@@ -174,8 +170,8 @@ const createExtraPage = () => new CreateCardModalPage(
 
     definitionAliasSetting.controlEl.querySelector('input')?.focus()
   },
-  modal => {
-    const { definitionAlias, solutionAlias, tags, lesson } = modal.getPageData(ModalPage.Extra)
+  () => {
+    const { definitionAlias, solutionAlias, tags, lesson } = modal.pageData[ModalPage.Extra]
     const { result } = modal
 
     if (
@@ -192,14 +188,6 @@ const createExtraPage = () => new CreateCardModalPage(
     // i don't know why typescript gave up here
     modal.onSubmit(result as CardInterface)
     modal.close()
-  },
-  {
-    data: {
-      definitionAlias: '',
-      solutionAlias: '',
-      tags: [],
-      lesson: ''
-    }
   }
 )
 
