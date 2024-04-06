@@ -35,12 +35,18 @@ const fuzzySearch = async (word: string): Promise<JotobaFuzzyResult[]> => {
     })
 }
 
-const furiganaToRuby = (furigana: string) => {
-  return furigana.replaceAll(
-    /\[[一-龠ぁ-ゔァ-ヴー々〆〤ヶa-zA-Z0-9ａ-ｚＡ-Ｚ０-９|]*\]/gui,
+const furiganaRegex = new RegExp(/\[[一-龠ぁ-ゔァ-ヴー々〆〤ヶa-zA-Z0-9ａ-ｚＡ-Ｚ０-９|]*\]/gui)
+const kanaRegex = new RegExp(/[ぁ-ゔ]/)
+const getFuriganaPair = (match: string) => {
+  const furiganaArray = match.slice(1, -1).split('|')
+  return _.partition(furiganaArray, string => !string.match(kanaRegex))
+}
+
+const furiganaToRuby = (furigana: string) =>
+  furigana.replaceAll(
+    furiganaRegex,
     match => {
-      const furiganaArray = match.slice(1, -1).split('|')
-      const [kanjis, kanas] = _.partition(furiganaArray, string => !string.match(/[ぁ-ゔ]/))
+      const [kanjis, kanas] = getFuriganaPair(match)
       const kanji = kanjis[0]
 
       const furiganaPairs: {
@@ -59,6 +65,26 @@ const furiganaToRuby = (furigana: string) => {
         `<ruby>${kanji}<rt>${kana}</rt></ruby>`).join('')
     }
   )
+
+const parseFurigana = (furigana: string,) => {
+  const doParse = (isKanji: boolean) => furigana.replaceAll(
+    furiganaRegex,
+    match => {
+      const [kanjis, kanas] = getFuriganaPair(match)
+      return (isKanji ? kanjis : kanas).join('')
+    }
+  )
+
+  if (!furigana.match(furiganaRegex)) return {
+    kanji: undefined,
+    kana: furigana
+  }
+
+  return {
+    kanji: doParse(true),
+    kana: doParse(false)
+  }
+
 }
 
 const searchSentence = async (word: string): Promise<ParsedSentence[]> => {
@@ -381,6 +407,7 @@ const parsePitch = (pitch: JotobaPitch[]) => filterFalsy(
 const dictServices = {
   fuzzySearch,
   furiganaToRuby,
+  parseFurigana,
   searchSentence,
   parseDictPos,
   parsePitch,

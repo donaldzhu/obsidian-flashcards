@@ -2,7 +2,7 @@ import { Scope } from 'obsidian'
 
 import { createPopper } from '@popperjs/core'
 
-import { CSS_CLASSES, NATIVE_CLASSES } from '../settings/constants'
+import { NATIVE_CLASSES } from '../settings/constants'
 import { wrapAround } from '../utils/util'
 
 import type { ISuggestOwner } from 'obsidian'

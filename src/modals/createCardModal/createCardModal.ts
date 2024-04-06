@@ -4,7 +4,6 @@ import { CSS_CLASSES, NATIVE_CLASSES } from '../../settings/constants'
 import { memoize } from '../../utils/modalUtils'
 import { filterFalsy } from '../../utils/util'
 import { PageModal } from '../pageModal'
-import { ModalPage } from './createCardModalTypes'
 import createDefinitionPage from './pages/definitionPage'
 import createExtraPage from './pages/extraPage'
 import createSearchPage from './pages/searchPage'
@@ -13,9 +12,16 @@ import createSelectPage from './pages/selectPage'
 import type { Falsey } from 'lodash'
 import type CreateModalPage from '../createModalPage'
 import type { Memoized } from '../../utils/modalUtils'
-import type { OnSubmitType } from './createCardModalTypes'
+import type { OnSubmitType } from '../modalType'
 import type { JMDictMap, JotobaFuzzyResult } from '../../types/dictTypes'
 import type { CardInterface, ParsedDefinition } from '../../types/cardTypes'
+
+export enum CreateCardModalPage {
+  Search,
+  Result,
+  Definition,
+  Extra
+}
 
 class CreateCardModal extends PageModal {
   result: Partial<CardInterface>
@@ -85,8 +91,8 @@ class CreateCardModal extends PageModal {
   onResultSelected(resultIndex: number) {
     if (!this.validateElems(this.templateElems)) throw this.invalidElemsError
 
-    this.pageData[this.pageNumber === ModalPage.Result ?
-      ModalPage.Result : ModalPage.Definition].index.value = resultIndex
+    this.pageData[this.pageNumber === CreateCardModalPage.Result ?
+      CreateCardModalPage.Result : CreateCardModalPage.Definition].index.value = resultIndex
 
     const { pageWrapper } = this.templateElems
     const { CARD, IS_SELECTED: CARD_IS_SELECTED } = NATIVE_CLASSES
@@ -105,11 +111,11 @@ class CreateCardModal extends PageModal {
 
   private onArrowKeydown(key: string) {
     if (
-      this.pageNumber !== ModalPage.Result &&
-      this.pageNumber !== ModalPage.Definition
+      this.pageNumber !== CreateCardModalPage.Result &&
+      this.pageNumber !== CreateCardModalPage.Definition
     ) return
 
-    const itemCount = this.pageNumber === ModalPage.Result ?
+    const itemCount = this.pageNumber === CreateCardModalPage.Result ?
       this.fuzzyResults.length : this.dictDefinitions.length
 
     const newIndex = this.getArrowKeydownIndex(

@@ -4,8 +4,8 @@ class CreateModalPage {
   constructor(
     public header: string | (() => string),
     public btnText: string,
-    public render: (templateElems: ModalElem) => void | (() => void),
-    public submit: (templateElems: ModalElem) => Promise<void> | void,
+    public render: (templateElems: ModalElem) => any | (() => any),
+    public submit: (templateElems: ModalElem) => Promise<any> | any,
     public className?: string
   ) { }
 }

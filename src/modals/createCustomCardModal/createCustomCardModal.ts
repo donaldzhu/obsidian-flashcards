@@ -1,19 +1,35 @@
-import type { CardInterface } from '../../types/cardTypes'
+import { memoize } from '../../utils/modalUtils'
 import { PageModal } from '../pageModal'
 import createCustomPage from './pages/customPage'
+import createReviewPage from './pages/reviewPage'
 
+import type { Memoized } from '../../utils/modalUtils'
+import type { CardInterface } from '../../types/cardTypes'
 import type CreateModalPage from '../createModalPage'
+import type { OnSubmitType } from '../modalType'
+export enum CreateCustomModalPage {
+  Custom,
+  Review,
+}
+
 class CreateCustomCardModal extends PageModal {
   result: Partial<CardInterface>
 
   pages: CreateModalPage[]
-  pageData: undefined
+  pageData: [
+    undefined,
+    {
+      tags: Memoized<string[]>
+    }
+  ]
 
-  constructor() {
+  constructor(
+    public onSubmit: OnSubmitType,
+  ) {
     super()
     this.result = {
-      solution: undefined,
       definitions: undefined,
+      solution: undefined,
       kanji: undefined,
       kana: undefined,
       solutionAlias: undefined,
@@ -27,7 +43,15 @@ class CreateCustomCardModal extends PageModal {
     }
 
     this.pages = [
-      createCustomPage(this)
+      createCustomPage(this),
+      createReviewPage(this)
+    ]
+
+    this.pageData = [
+      undefined,
+      {
+        tags: memoize([])
+      }
     ]
   }
 }

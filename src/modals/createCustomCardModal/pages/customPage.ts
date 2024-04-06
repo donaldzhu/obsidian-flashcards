@@ -2,65 +2,163 @@ import _ from 'lodash'
 import { Setting } from 'obsidian'
 
 import customPosMap, { commonPos } from '../../../data/customPosMap'
+import dictServices from '../../../services/dictServices'
 import { DEFAULT_SETTINGS } from '../../../settings/constants'
 import GenericTextSuggester from '../../../suggesters/genericTextSuggest'
 import TagSuggester from '../../../suggesters/tagSuggest'
+import { onIncompleteCardError } from '../../../utils/modalUtils'
 import { getPropKey } from '../../../utils/obsidianUtil'
-import { typedKeys } from '../../../utils/util'
+import { filterFalsy, typedKeys } from '../../../utils/util'
 import CreateModalPage from '../../createModalPage'
 
+import type { ParsedPos } from '../../../types/cardTypes'
+import type { TextComponent } from 'obsidian'
 import type CreateCustomCardModal from '../createCustomCardModal'
-const pushToIndex = <T, K = undefined>(
-  array: (T | K)[],
-  newItem: T,
-  index: number,
-  filler: K
+
+interface NestedSettingConfig {
+  description?: string,
+  textCallback?: (text: TextComponent, results: string[]) => any,
+  onChange?: (results: string[]) => any
+}
+
+const createNestedSettings = (
+  wrapper: HTMLDivElement,
+  name: string,
+  config?: NestedSettingConfig
 ) => {
-  while (array.length - 1 < index)
-    array.push(filler)
-  if (array.length === index) array.push(newItem)
-  else array[index] = newItem
-  return array
+  const {
+    description,
+    textCallback = _.noop,
+    onChange = _.noop
+  } = config ?? {}
+  const results: string[] = ['']
+
+  const settingsWrapper = wrapper.createDiv({
+    cls: 'nested-setting-wrapper'
+  })
+  // TODO
+  const createNewRow = (index: number) => {
+    const setting = new Setting(settingsWrapper)
+    if (!index) {
+      setting
+        .setName(name)
+        .addExtraButton(button =>
+          button
+            .setIcon('plus-with-circle') // TODO
+            .onClick(() => {
+              results.push('')
+              updateRows()
+              onChange(results)
+            })
+        )
+
+      if (description) setting.setDesc(description)
+    }
+
+    else setting.addExtraButton(button => {
+      button
+        .setIcon('cross')
+        .onClick(() => {
+          _.pullAt(results, index)
+          updateRows()
+          onChange(results)
+        })
+    })
+
+    setting
+      .addText(text => {
+        text
+          .setValue(results[index] ?? '')
+          .onChange(value => {
+            results[index] = value
+            onChange(results)
+          })
+        textCallback(text, results)
+      })
+  }
+
+  const updateRows = () => {
+    settingsWrapper.empty()
+    results.forEach((_, i) => createNewRow(i))
+  }
+
+  updateRows()
+  return results
 }
 
 const createCustomPage = (modal: CreateCustomCardModal) => new CreateModalPage(
   'Create Custom Flashcard',
   'Create',
   ({ pageWrapper }) => {
-    const definitions: string[] = ['']
+    createNestedSettings(
+      pageWrapper,
+      'Definition(s)',
+      {
+        description: 'The flashcard’s definition(s).',
+        onChange: translations => {
+          translations = filterFalsy(translations)
+          const { definitions } = modal.result
+          if (!definitions?.length)
+            return modal.result.definitions = [{
+              translations,
+              partsOfSpeech: []
+            }]
 
-    // TODO parts of speech
-    const pos = new Setting(pageWrapper)
-      .setName('Part-of-Speech')
-      .setDesc('The flashcard’s grammatical part-of-speech.')
-      .addText(text => {
-        const partsOfSpeech = [
-          ...commonPos,
-          ..._.without(typedKeys(customPosMap), ...commonPos)
-        ]
+          definitions[0].translations = translations
+        }
+      }
+    )
 
-        // text
-        // .setValue(modal.result.lesson ?? '')
-        //.onChange(value => modal.result.lesson = value)
-        new GenericTextSuggester(text.inputEl, partsOfSpeech)
-      })
+    createNestedSettings(
+      pageWrapper,
+      'Part-of-Speech',
+      {
+        description: 'The flashcard’s grammatical part-of-speech.',
+        textCallback: (text, results) => {
+          const partsOfSpeech = _.without([
+            ...commonPos,
+            ..._.without(typedKeys(customPosMap), ...commonPos)
+          ], ...results)
+          new GenericTextSuggester(text.inputEl, partsOfSpeech)
+        },
+        onChange: results => {
+          const partsOfSpeech: ParsedPos[] = filterFalsy(
+            results.map(result =>
+              result in customPosMap ?
+                dictServices.parseDictPos(
+                  customPosMap[result as keyof typeof customPosMap]
+                ) : undefined
+            )
+          )
 
-    const solution = new Setting(pageWrapper)
+          const { definitions } = modal.result
+          if (!definitions?.length)
+            return modal.result.definitions = [{
+              translations: [],
+              partsOfSpeech
+            }]
+
+          definitions[0].partsOfSpeech = partsOfSpeech
+        }
+      }
+    )
+
+    new Setting(pageWrapper)
       .setName('Solution')
       .setDesc('The flashcard’s solution (in furigana).')
       .addText(text => text
         .setValue(modal.result.solution ?? '')
         .onChange(value => modal.result.solution = value))
 
-    const solutionAlias = new Setting(pageWrapper)
+    new Setting(pageWrapper)
       .setName('Solution Alias')
       .setDesc('How the flashcard’s Japanese solution will be shown.') // TODO
       .addText(text => text
         .setValue(modal.result.solutionAlias ?? '')
         .onChange(value => modal.result.solutionAlias = value))
 
-    // TOOD
-    const lesson = new Setting(pageWrapper)
+    // TODO
+    new Setting(pageWrapper)
       .setName('Lesson')
       .setDesc('The textbook lesson that the entry is from.')
       .addText(text => {
@@ -73,61 +171,29 @@ const createCustomPage = (modal: CreateCustomCardModal) => new CreateModalPage(
           .onChange(value => modal.result.lesson = value)
         new GenericTextSuggester(text.inputEl, tags)
       })
-
-    const otherSettings: Setting[] = [
-      pos,
-      solution,
-      solutionAlias,
-      lesson
-    ]
-
-    // TODO
-    const getDefRows = () => Array.from(pageWrapper.getElementsByClassName('custom-definitions'))
-    const createNewDefRow = (index: number) => {
-      const setting = new Setting(pageWrapper)
-      if (!index) setting
-        .setName('Definition(s)')
-        .setDesc('The flashcard’s definition(s).')
-        .addExtraButton(button => {
-          button
-            .setIcon('plus-with-circle')
-            .onClick(() => {
-              definitions.push('')
-              updateDefRows()
-            })
-        })
-
-      else setting.addExtraButton(button => {
-        button
-          .setIcon('cross')
-          .onClick(() => {
-            _.pullAt(definitions, index)
-            updateDefRows()
-          })
-      })
-
-      setting
-        .setClass('custom-definitions')
-        .addText(text => text
-          .setValue(definitions[index] ?? '')
-          .onChange(value => {
-            definitions[index] = value
-          }))
-    }
-
-    const updateDefRows = () => {
-      const defRows = getDefRows()
-      console.log(definitions, defRows)
-      defRows.forEach(div => div.detach())
-      definitions.forEach((_, i) => createNewDefRow(i))
-      otherSettings.forEach(({ settingEl }) => pageWrapper.appendChild(settingEl))
-    }
-
-    updateDefRows()
-
   },
   () => {
+    const { result } = modal
+    if (!result.solution) {
+      modal.pageNumber--
+      return onIncompleteCardError(result, 'The flashcard must have a solution.')
+    }
 
+    Object.assign(result, dictServices.parseFurigana(result.solution))
+
+    if (
+      !result.definitions ||
+      !result.kana
+    ) {
+      modal.pageNumber--
+      return onIncompleteCardError(
+        result,
+        !result.definitions ?
+          'The flashcard must have a definition.' :
+          'Unable to parse kana from solution.'
+      )
+    }
+    console.log('Result', result)
   },
 )
 

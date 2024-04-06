@@ -4,7 +4,7 @@ import dictServices from '../../../services/dictServices'
 import { CSS_CLASSES, NATIVE_CLASSES } from '../../../settings/constants'
 import { truncateDef } from '../../../utils/dictUtils'
 import CreateModalPage from '../../createModalPage'
-import { ModalPage } from '../createCardModalTypes'
+import { CreateCardModalPage } from '../createCardModal'
 
 import type CreateCardModal from '../createCardModal'
 import type jmDictIndices from '../../../data/JMdictIndices'
@@ -13,10 +13,8 @@ const createSelectPage = (modal: CreateCardModal) => new CreateModalPage(
   'Create new flashcard',
   'Search',
   () => {
-    if (modal.fuzzyResults.length === 1) {
-      modal.skipPage()
-      return
-    }
+    if (modal.fuzzyResults.length === 1)
+      return modal.skipPage()
 
     modal.fuzzyResults.forEach(({
       furigana,
@@ -43,7 +41,7 @@ const createSelectPage = (modal: CreateCardModal) => new CreateModalPage(
     })
   },
   async () => {
-    const { index } = modal.pageData[ModalPage.Result]
+    const { index } = modal.pageData[CreateCardModalPage.Result]
     const result = modal.fuzzyResults[index.value]
     const { furigana, kanji, kana } = result
 

@@ -109,6 +109,14 @@
   }
 }
 
-.custom-definitions {
-  border-top: none;
+.nested-setting-wrapper {
+  padding-top: 0.75em;
+
+  &:not(:first-child) {
+    border-top: 1px solid var(--background-modifier-border);
+  }
+
+  .setting-item {
+    border-top: none;
+  }
 }

@@ -4,7 +4,7 @@ import dictServices from '../../../services/dictServices'
 import { CSS_CLASSES, NATIVE_CLASSES } from '../../../settings/constants'
 import { truncateDefList } from '../../../utils/dictUtils'
 import CreateModalPage from '../../createModalPage'
-import { ModalPage } from '../createCardModalTypes'
+import { CreateCardModalPage } from '../createCardModal'
 
 import type CreateCardModal from '../createCardModal'
 
@@ -16,10 +16,8 @@ const createDefinitionPage = (modal: CreateCardModal) => new CreateModalPage(
   },
   'Create',
   () => {
-    if (modal.dictDefinitions.length === 1) {
-      modal.skipPage()
-      return
-    }
+    if (modal.dictDefinitions.length === 1)
+      return modal.skipPage()
 
     modal.dictDefinitions.forEach(({ translations, partsOfSpeech }, index) => {
       const resultWrapper = modal.renderCard(index)
@@ -44,7 +42,7 @@ const createDefinitionPage = (modal: CreateCardModal) => new CreateModalPage(
   },
   () => {
     const dictDefinitions = [...modal.dictDefinitions]
-    const { index } = modal.pageData[ModalPage.Definition]
+    const { index } = modal.pageData[CreateCardModalPage.Definition]
     modal.result.definitions = [
       ..._.pullAt(dictDefinitions, index.value),
       ...dictDefinitions

@@ -75,7 +75,7 @@ export abstract class PageModal extends Modal {
   }
 
   doSubmit(e?: KeyboardEvent) {
-    if (this.buttonIsDisabled) return
+    if (this.buttonIsDisabled || e?.isComposing) return
     e?.preventDefault()
     this.templateElems.nextButton?.buttonEl.click()
   }

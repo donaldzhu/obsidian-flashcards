@@ -56,7 +56,9 @@ export default class ExamplePlugin extends Plugin {
       id: 'create-custom-flashcard',
       name: 'Create Custom Flashcard',
       callback: () =>
-        new CreateCustomCardModal().open(),
+        new CreateCustomCardModal(
+          this.submitCard.bind(this)
+        ).open(),
     })
   }
 
