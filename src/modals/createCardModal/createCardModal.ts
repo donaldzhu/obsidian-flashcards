@@ -1,9 +1,11 @@
 import _ from 'lodash'
 
+import Card from '../../card'
 import { CSS_CLASSES, NATIVE_CLASSES } from '../../settings/constants'
 import { memoize } from '../../utils/modalUtils'
 import { filterFalsy } from '../../utils/util'
 import { PageModal } from '../pageModal'
+import { CreateCardModalPage } from './createCardModalType'
 import createDefinitionPage from './pages/definitionPage'
 import createExtraPage from './pages/extraPage'
 import createSearchPage from './pages/searchPage'
@@ -14,17 +16,10 @@ import type CreateModalPage from '../createModalPage'
 import type { Memoized } from '../../utils/modalUtils'
 import type { OnSubmitType } from '../modalType'
 import type { JMDictMap, JotobaFuzzyResult } from '../../types/dictTypes'
-import type { CardInterface, ParsedDefinition } from '../../types/cardTypes'
-
-export enum CreateCardModalPage {
-  Search,
-  Result,
-  Definition,
-  Extra
-}
+import type { ParsedDefinition } from '../../types/cardTypes'
 
 class CreateCardModal extends PageModal {
-  result: Partial<CardInterface>
+  result: Card
   initialQuery: string
 
   fuzzyResults: JotobaFuzzyResult[]
@@ -45,22 +40,11 @@ class CreateCardModal extends PageModal {
 
   constructor(
     public onSubmit: OnSubmitType,
-    public jmDictMap: JMDictMap
+    public jmDictMap: JMDictMap,
+    public lastCardLesson?: string
   ) {
-    super()
-    this.result = {
-      solution: undefined,
-      definitions: undefined,
-      pitch: undefined,
-      audio: undefined,
-      kanji: undefined,
-      kana: undefined,
-      sentences: [],
-      definitionAlias: undefined,
-      solutionAlias: undefined,
-      tags: [],
-      lesson: undefined
-    }
+    super(CSS_CLASSES.CREATE_CARD_SETTING_WRAPPER)
+    this.result = new Card()
 
     this.initialQuery = ''
     this.fuzzyResults = []
@@ -95,17 +79,17 @@ class CreateCardModal extends PageModal {
       CreateCardModalPage.Result : CreateCardModalPage.Definition].index.value = resultIndex
 
     const { pageWrapper } = this.templateElems
-    const { CARD, IS_SELECTED: CARD_IS_SELECTED } = NATIVE_CLASSES
+    const { SEARCH_RESULT: CARD, IS_SELECTED: CARD_IS_SELECTED } = NATIVE_CLASSES
 
     const resultWrappers = Array.from(pageWrapper
       .getElementsByClassName(CARD)) as HTMLDivElement[]
     for (let i = 0; i < resultWrappers.length; i++) {
       const resultWrapper = resultWrappers[i]
       if (i === resultIndex) {
-        resultWrapper.classList.add(CARD_IS_SELECTED)
+        resultWrapper.addClass(CARD_IS_SELECTED)
         resultWrapper.focus()
       }
-      else resultWrapper.classList.remove(CARD_IS_SELECTED)
+      else resultWrapper.removeClass(CARD_IS_SELECTED)
     }
   }
 
@@ -145,10 +129,10 @@ class CreateCardModal extends PageModal {
     if (!this.validateElems(this.templateElems)) throw this.invalidElemsError
     const { pageWrapper } = this.templateElems
 
-    pageWrapper.classList.add(...CSS_CLASSES.SETTING_WRAPPER)
+    pageWrapper.addClass(...CSS_CLASSES.CREATE_CARD_SETTING_WRAPPER)
     const resultWrapper = pageWrapper.createDiv({
       cls: [
-        NATIVE_CLASSES.CARD,
+        NATIVE_CLASSES.SEARCH_RESULT,
         ...filterFalsy(cssClasses ?? [])
       ]
     })

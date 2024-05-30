@@ -1,13 +1,14 @@
 import _ from 'lodash'
 
 import miscMap from '../data/miscMap'
-import { CSS_CLASSES } from '../settings/constants'
+import { CSS_CLASSES, URLS } from '../settings/constants'
 import { extract, filterFalsy, mapObject, mightInclude, validateString } from '../utils/util'
-import httpServices, { JOTOBA_URL } from './httpServices'
+import httpServices from './httpServices'
 
 import type { Falsey } from 'lodash'
-import type { JotobaFuzzyResult, JotobaSentence, JotobaWordsRes, JotobaPos, JMDictEntry, JotobaPitch } from '../types/dictTypes'
+import type { JotobaFuzzyResult, JotobaWordsRes, JotobaPos, JMDictEntry, JotobaPitch, TatoebaResult } from '../types/dictTypes'
 import type { ParsedPos, ParsedSentence } from '../types/cardTypes'
+
 const getConfig = (word: string) => ({
   query: word,
   language: 'English'
@@ -15,7 +16,7 @@ const getConfig = (word: string) => ({
 
 const fuzzySearch = async (word: string): Promise<JotobaFuzzyResult[]> => {
   const jotobaConfig = getConfig(word)
-  const jotobaRes = (await httpServices.post<JotobaWordsRes>('words', jotobaConfig)).data
+  const jotobaRes = (await httpServices.post<JotobaWordsRes>(`${URLS.JOTOBA_SEARCH}/words`, jotobaConfig)).data
 
   return jotobaRes.words
     .map(({ reading, senses, pitch, audio, common }) => ({
@@ -23,7 +24,7 @@ const fuzzySearch = async (word: string): Promise<JotobaFuzzyResult[]> => {
       definitions: extract(senses, 'glosses'),
       partsOfSpeech: extract(senses, 'pos'),
       pitch,
-      audio: audio ? JOTOBA_URL + audio : undefined,
+      audio: audio ? URLS.JOTOBA + audio : undefined,
       isCommon: common
     }))
     .sort((a, b) => {
@@ -41,6 +42,10 @@ const getFuriganaPair = (match: string) => {
   const furiganaArray = match.slice(1, -1).split('|')
   return _.partition(furiganaArray, string => !string.match(kanaRegex))
 }
+interface FuriganaPair {
+  kana: string,
+  kanji: string
+}
 
 const furiganaToRuby = (furigana: string) =>
   furigana.replaceAll(
@@ -49,16 +54,13 @@ const furiganaToRuby = (furigana: string) =>
       const [kanjis, kanas] = getFuriganaPair(match)
       const kanji = kanjis[0]
 
-      const furiganaPairs: {
-        kana: string,
-        kanji: string
-      }[] = []
+      const furiganaPairs: FuriganaPair[] = []
       kanas.forEach((kana, i) => {
         const isLastKana = i === kanas.length - 1
-        if (isLastKana) furiganaPairs.push({ kana, kanji: kanji.slice(i) })
-        else {
-          furiganaPairs.push({ kana, kanji: kanji[i] })
-        }
+        furiganaPairs.push({
+          kana,
+          kanji: isLastKana ? kanji.slice(i) : kanji[i]
+        })
       })
 
       return furiganaPairs.map(({ kana, kanji }) =>
@@ -66,7 +68,7 @@ const furiganaToRuby = (furigana: string) =>
     }
   )
 
-const parseFurigana = (furigana: string,) => {
+const parseFurigana = (furigana: string) => {
   const doParse = (isKanji: boolean) => furigana.replaceAll(
     furiganaRegex,
     match => {
@@ -84,16 +86,24 @@ const parseFurigana = (furigana: string,) => {
     kanji: doParse(true),
     kana: doParse(false)
   }
-
 }
 
-const searchSentence = async (word: string): Promise<ParsedSentence[]> => {
-  const jotobaConfig = getConfig(word)
-  const sentences = ((await httpServices.post('sentences', jotobaConfig))
-    .data.sentences as JotobaSentence[])
+const searchSentence = async (kana: string, kanji?: string): Promise<ParsedSentence[]> => {
+  const query = kanji ? `@text${kanji}@transcription${kana}` : `@text${kana}`
+  const url = `${URLS.TATOEBA_SEARCH}?from=jpn&query=${query}&trans_orphan=no&trans_unapproved&to=eng&word_count_min=5`
+
+  // @ts-ignore
+  const { results } = JSON.parse(await request(url)) as TatoebaResult
+  return results
     .slice(0, 10)
-    .map(sentence => _.pick(sentence, ['furigana', 'translation']))
-  return sentences
+    .map(({ transcriptions, translations, audios }) => {
+      return {
+        furigana: transcriptions[0].text,
+        ruby: transcriptions[0].html,
+        translation: translations.filter(trans => trans.length)[0][0].text,
+        audio: audios[0] ? `${URLS.TATOEBA_AUDIO}/${audios[0].id}` : undefined
+      }
+    })
 }
 
 const parseDictPos = (pos: JotobaPos): ParsedPos => {

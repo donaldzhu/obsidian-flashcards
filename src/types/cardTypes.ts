@@ -1,16 +1,24 @@
 import type miscMap from '../data/miscMap'
-import type { JotobaPitch } from './dictTypes'
+import type { PropOf } from './utilTypes'
+
+export type MiscType = PropOf<typeof miscMap>[]
 
 export interface ParsedDefinition {
   translations: string[],
-  misc?: typeof miscMap[keyof typeof miscMap][]
+  misc?: MiscType
   partsOfSpeech: ParsedPos[]
 }
 
 export interface ParsedSentence {
   furigana: string
+  ruby: string
   translation: string
+  audio?: string
 }
+
+export type verbType = 'る' | 'う' | 'irregular'
+export type verbSuffix = 'ぶ' | 'ぐ' | 'く' | 'む' | 'ぬ' | 'る' | 'す' | 'つ' | 'う'
+export type verbSpecialSuffix = 'くれる' | 'ある' | 'いく' | 'ずる' | 'くる' | 'する' | '~する'
 
 export interface ParsedPos {
   type?:
@@ -29,9 +37,9 @@ export interface ParsedPos {
   tag?: 'irregular' | 'special' | '二段' | '四段' | '〜の' | '〜と'
   adjType?: 'い' | 'く' | 'な' | 'しく' | 'たる'
   adjSpecialSuffix?: 'いい/よい' | 'なり'
-  verbType?: 'る' | 'う' | 'irregular'
-  verbSuffix?: 'ぶ' | 'ぐ' | 'く' | 'む' | 'ぬ' | 'る' | 'す' | 'つ' | 'う'
-  verbSpecialSuffix?: 'くれる' | 'ある' | 'いく' | 'ずる' | 'くる' | 'する' | '~する'
+  verbType?: verbType
+  verbSuffix?: verbSuffix
+  verbSpecialSuffix?: verbSpecialSuffix
   isPrefix: boolean
   isSuffix: boolean
   isAuxilary: boolean
@@ -39,18 +47,3 @@ export interface ParsedPos {
   isPreNounVerb: boolean
   isPreNounAdj: boolean
 }
-
-export interface CardInterface {
-  solution: string
-  definitions: ParsedDefinition[]
-  pitch?: JotobaPitch[]
-  audio?: string
-  kanji?: string | null
-  kana: string
-  sentences?: ParsedSentence[]
-  definitionAlias?: string,
-  solutionAlias?: string,
-  tags: string[],
-  lesson?: string
-}
-

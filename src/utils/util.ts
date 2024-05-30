@@ -1,4 +1,5 @@
 import type { Falsey } from 'lodash'
+import type { PropOf } from '../types/utilTypes'
 
 export function typedKeys<T extends object>(object: T): (keyof T)[]
 export function typedKeys<T extends string>(object: object): T[]
@@ -8,7 +9,7 @@ export function typedKeys<T extends (object | string)>(object: T) {
 
 export const mapObject = <T extends object, R>(
   object: T,
-  callback: (key: keyof T, value: T[keyof T]) => R
+  callback: (key: keyof T, value: PropOf<T>) => R
 ) => {
   const newObject: Partial<Record<keyof T, R>> = {}
   const keys = typedKeys(object)
@@ -22,7 +23,7 @@ export const mapObject = <T extends object, R>(
 
 export const loopObject = <T extends object>(
   object: T,
-  callback: (key: keyof T, value: T[keyof T], object: T) => void
+  callback: (key: keyof T, value: PropOf<T>, object: T) => void
 ) => {
   const keys = typedKeys(object)
   keys.forEach(key => {
@@ -56,3 +57,32 @@ type _TupleOf<T, N extends number, R extends unknown[]> = R['length'] extends N 
 
 export const wrapAround = (value: number, size: number) =>
   ((value % size) + size) % size
+
+export const joinAs = <T>(
+  array: T[],
+  callback: (value: T, accumulated: string) => string
+) => array.reduce((prev, curr) => prev + callback(curr, prev,), '')
+
+export function toObject<K extends PropertyKey, P>(
+  array: K[] | readonly K[],
+  callback: (key: K, accumulated: Partial<Record<K, P>>) => P
+) {
+  type Result = Record<K, P>
+  const result: Partial<Result> = {}
+  array.forEach(item => {
+    result[item] = callback(item, result)
+  })
+  return result as Result
+}
+
+export function toNewObject<K extends PropertyKey, NK extends PropertyKey, P>(
+  array: K[] | readonly K[],
+  callback: (result: Partial<Record<NK, P>>, key: K) => any
+) {
+  type Result = Record<NK, P>
+  const result: Partial<Result> = {}
+  array.forEach(item => callback(result, item))
+  return result as Result
+}
+
+

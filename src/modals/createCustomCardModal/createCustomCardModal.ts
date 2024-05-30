@@ -1,46 +1,29 @@
+import Card from '../../card'
+import { CSS_CLASSES } from '../../settings/constants'
 import { memoize } from '../../utils/modalUtils'
 import { PageModal } from '../pageModal'
 import createCustomPage from './pages/customPage'
 import createReviewPage from './pages/reviewPage'
 
 import type { Memoized } from '../../utils/modalUtils'
-import type { CardInterface } from '../../types/cardTypes'
 import type CreateModalPage from '../createModalPage'
 import type { OnSubmitType } from '../modalType'
-export enum CreateCustomModalPage {
-  Custom,
-  Review,
-}
 
 class CreateCustomCardModal extends PageModal {
-  result: Partial<CardInterface>
+  result: Card
 
   pages: CreateModalPage[]
   pageData: [
     undefined,
-    {
-      tags: Memoized<string[]>
-    }
+    { tags: Memoized<string[]> }
   ]
 
   constructor(
     public onSubmit: OnSubmitType,
+    public lastCardLesson?: string
   ) {
-    super()
-    this.result = {
-      definitions: undefined,
-      solution: undefined,
-      kanji: undefined,
-      kana: undefined,
-      solutionAlias: undefined,
-      tags: [],
-      lesson: undefined,
-
-      definitionAlias: undefined,
-      pitch: undefined,
-      audio: undefined,
-      sentences: [],
-    }
+    super(CSS_CLASSES.CREATE_CARD_SETTING_WRAPPER)
+    this.result = new Card()
 
     this.pages = [
       createCustomPage(this),

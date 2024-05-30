@@ -146,14 +146,6 @@ export interface JotobaWordsRes {
   words: JotobaWords[]
 }
 
-export interface JotobaSentence {
-  content: string
-  furigana: string
-  translation: string
-  language: string
-  eng: string
-}
-
 export interface JotobaFuzzyResult {
   furigana: string | null
   kanji?: string
@@ -163,6 +155,33 @@ export interface JotobaFuzzyResult {
   pitch?: JotobaPitch[]
   audio?: string
   isCommon: boolean
+}
+
+interface TatoebaTranscription {
+  id: number
+  sentence_id: number
+  text: string
+  html: string
+}
+
+interface TatoebaAudio {
+  id: number
+}
+
+interface TotoebaSentence {
+  id: string
+  text: string
+  correctness: number
+  transcriptions: TatoebaTranscription[]
+  audios: TatoebaAudio[]
+}
+
+export interface TatoebaResult {
+  results: (TotoebaSentence & {
+    translations: (TotoebaSentence & {
+      isDirect: boolean
+    })[][]
+  })[]
 }
 
 

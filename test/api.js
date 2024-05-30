@@ -1,45 +1,7 @@
 const axios = require('axios')
 
+
 const search = async word => {
-  const jotobaRes = (await axios.post('https://jotoba.de/api/search/words', {
-    query: word,
-    language: 'English'
-  })).data
-  const sentences = (await axios.post('https://jotoba.de/api/search/sentences', {
-    query: word,
-    language: 'English'
-  })).data.sentences
-    .slice(0, 5)
-  // .map(sentence =>
-  //   ({ content: sentence.content, translation: sentence.translation }))
-
-  const jotobaWord = jotobaRes.words[0]
-
-  const definitions = jotobaWord.senses.map(sense => sense.glosses.join(', '))
-  const partsOfSpeech = jotobaWord.senses[0].pos
-  const reading = jotobaWord.reading.furigana
-  const pitch = jotobaWord.pitch?.reduce((prev, curr, i) => {
-    return prev + (curr.high ? '↑' : i ? '↓' : '') + curr.part
-  }, '')
-  const audio = jotobaWord.audio ? 'https://jotoba.de' + jotobaWord.audio : undefined
-
-  console.log({
-    definitions,
-    partsOfSpeech,
-    reading,
-    pitch,
-    audio,
-    sentences,
-  })
-}
-
-const search1 = async word => {
-
-  // jisho.searchForPhrase(word).then(result => {
-  //   const { senses } = result.data[0]
-  //   senses.map(sense => console.log(sense.tags))
-  // })
-
   const jotobaRes = (await axios.post('https://jotoba.de/api/search/words', {
     query: word,
     language: 'English'
@@ -59,9 +21,18 @@ const search1 = async word => {
 }
 
 
-search1('臥す')
+// search('臥す')
 
 
+const searchSentence = async (kana, kanji) => {
+  const query = kanji ? `@text${kanji}@transcription${kana}` : kana
+  const url = `https://tatoeba.org/eng/api_v0/search?from=jpn&query=${query}&trans_orphan=no&trans_unapproved&to=jpn`
+  console.log(url)
+  const result = (await axios.get(url))
+  // console.log(result)
+}
+
+searchSentence('もの', '物')
 
 const pos = {
   'adj-f': [

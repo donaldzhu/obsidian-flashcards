@@ -1,6 +1,9 @@
 import _ from 'lodash'
 import * as wanakana from 'wanakana'
 
+import miscMap from '../data/miscMap'
+import { ParsedDefinition } from '../types/cardTypes'
+
 export const truncateDef = (definition: string, length = 100) =>
   _.truncate(definition, {
     length,
@@ -27,19 +30,20 @@ export const truncateDefList = (defList: string[], config?: TruncateDefListConfi
   return results
 }
 
+export const prepString = (string: string) => string.toLocaleLowerCase().trim()
 
-const hasJp = (inputString: string) =>
-  inputString.match(/一-龠ぁ-ゔァ-ヴー々〆〤ヶ/)
+export const hasKanji = (string: string) =>
+  string.match(/[一-龠]/)
+
+export const hasJp = (string: string) =>
+  string.match(/[一-龠ぁ-ゔァ-ヴー々〆〤ヶ]/)
 
 export const compareJp = (targetString: string, inputString: string) => {
   if (!hasJp(inputString))
     targetString = wanakana.toRomaji(targetString)
-  return targetString
-    .toLowerCase()
-    .trim()
-    .contains(
-      inputString
-        .toLowerCase()
-        .trim()
-    )
+  return prepString(targetString).contains(
+    prepString(inputString)
+  )
 }
+
+export const isKanaOnly = (definition: ParsedDefinition) => !!definition.misc?.includes(miscMap.uk)

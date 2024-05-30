@@ -2,7 +2,8 @@ import _ from 'lodash'
 import { TFile } from 'obsidian'
 import path from 'path'
 
-import { compareJp } from '../utils/dictUtils'
+import obsidianServices from '../services/obsidianServices'
+import { compareJp, prepString } from '../utils/dictUtils'
 import { filterFalsy } from '../utils/util'
 import { TextInputSuggest } from './textSuggest'
 
@@ -38,7 +39,7 @@ class TagSuggester extends TextInputSuggest<suggestChildren> {
   }
 
   getSuggestions(inputString: string) {
-    const inputLowerCase = inputString.toLowerCase().trim()
+    const inputLowerCase = prepString(inputString)
     const tags = TagSuggester.getTags(this.tagName, this.subfolder)
 
     const filtered = tags.filter(item => {
@@ -70,7 +71,7 @@ class TagSuggester extends TextInputSuggest<suggestChildren> {
 
     this.inputElem.value = ''
     this.inputElem.trigger('input')
-    this.close()
+    // this.close()
   }
 
   renderSuggestion(selected: suggestChildren, elem: HTMLElement) {
@@ -91,8 +92,7 @@ class TagSuggester extends TextInputSuggest<suggestChildren> {
     return _.uniq(
       filterFalsy(
         pagesInFolder.map(file => {
-          const metadata = app.metadataCache.getFileCache(file)
-          const frontmatter = metadata?.frontmatter ?? {}
+          const frontmatter = obsidianServices.getFrontmatter(file) ?? {}
           return (frontmatter[tagName] ?? []) as string[]
         }).flat()
       )

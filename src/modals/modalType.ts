@@ -1,3 +1,3 @@
-import type { CardInterface } from '../types/cardTypes'
+import type { CardInterface } from '../card'
 
 export type OnSubmitType = (result: CardInterface) => void

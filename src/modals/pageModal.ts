@@ -1,27 +1,27 @@
-import _ from 'lodash'
 import { Modal, Setting } from 'obsidian'
 
 import { CSS_CLASSES } from '../settings/constants'
-import { loopObject } from '../utils/util'
+import { loopObject, validateString } from '../utils/util'
 
 import type { Memoized } from '../utils/modalUtils'
 import type { ModalElem, PartialModalElem } from './pageModalType'
 import type CreateModalPage from './createModalPage'
-
 export abstract class PageModal extends Modal {
   pageNumber: number
 
   abstract pages: CreateModalPage[]
   abstract pageData?: (Record<string, Memoized<any>> | undefined)[]
 
-  onPageUnmount: void | (() => void)
+  onPageUnmount: Promise<void> | void | (() => void)
   isToNextPage: boolean
 
   templateElems: PartialModalElem
 
   buttonIsDisabled: boolean
 
-  constructor() {
+  constructor(
+    private className?: string
+  ) {
     super(app)
     this.pageNumber = -1
 
@@ -37,7 +37,14 @@ export abstract class PageModal extends Modal {
 
     this.buttonIsDisabled = false
 
-    this.scope.register([], 'Enter', e => this.doSubmit(e))
+    this.scope.register([], 'Enter', e => {
+      const { activeElement } = document
+      if (
+        activeElement?.tagName === 'BUTTON' &&
+        activeElement !== this.templateElems.nextButton?.buttonEl
+      ) return
+      this.doSubmit(e)
+    })
   }
 
   onOpen() {
@@ -47,7 +54,7 @@ export abstract class PageModal extends Modal {
     this.templateElems.title = contentEl.createEl('h1')
     this.templateElems.pageWrapper = contentEl.createDiv()
 
-    new Setting(contentEl)
+    const buttons = new Setting(contentEl)
       .addButton(btn => {
         this.templateElems.backButton = btn
         btn
@@ -64,6 +71,7 @@ export abstract class PageModal extends Modal {
           .onClick(() => this.toNextPage())
       })
 
+    buttons.setClass(CSS_CLASSES.BUTTON_WRAPPER)
     this.toNextPage()
   }
 
@@ -71,7 +79,7 @@ export abstract class PageModal extends Modal {
     const { contentEl } = this
     contentEl.empty()
     app.keymap.popScope(this.scope)
-    if (this.onPageUnmount) this.onPageUnmount()
+    if (typeof this.onPageUnmount === 'function') this.onPageUnmount()
   }
 
   doSubmit(e?: KeyboardEvent) {
@@ -85,41 +93,47 @@ export abstract class PageModal extends Modal {
     await this.getPage(this.pageNumber++)?.submit()
     if (this.pageNumber >= this.pages.length) return
     this.isToNextPage = true
-    this.turnPage()
+    await this.turnPage()
   }
 
-  toPrevPage() {
+  async toPrevPage() {
     const memos: Record<string, Memoized<any>> | undefined =
       (this.pageData ?? [])[this.pageNumber--]
     if (memos) loopObject(memos, (_, memo) => memo.reset())
     this.isToNextPage = false
-    this.turnPage()
+    await this.turnPage()
   }
 
-  turnPage() {
-    if (!this.validateElems(this.templateElems)) throw this.invalidElemsError;
-    (this.onPageUnmount || _.noop)()
+  async turnPage() {
+    if (!this.validateElems(this.templateElems)) throw this.invalidElemsError
+    if (typeof this.onPageUnmount === 'function') this.onPageUnmount()
+
+    const modalEl = this.containerEl.querySelector('.modal')
+    const prevPage = this.getPage(this.pageNumber + (this.isToNextPage ? -1 : 1))
+
+    if (prevPage?.wrapperClassName)
+      this.toggleClassNames('remove', prevPage.wrapperClassName, modalEl)
 
     const page = this.getPage(this.pageNumber)
     if (!page) return
 
-    const { header, btnText, className } = page
+    const { header, btnText, className, wrapperClassName } = page
     const { pageWrapper, title, nextButton, backButton } = this.templateElems
     pageWrapper.empty()
 
-    pageWrapper.className = CSS_CLASSES.SETTING_WRAPPER
-    if (className) pageWrapper.classList.add(className)
+    pageWrapper.className = validateString(this.className, `${this.className} `) + 'page-modal-wrapper'
+    if (className) pageWrapper.addClass(className)
+    if (wrapperClassName) this.toggleClassNames('add', wrapperClassName, modalEl)
 
     title.innerHTML = typeof header === 'string' ? header : header()
-    nextButton.setButtonText(btnText)
+    nextButton.setButtonText(btnText ?? '')
     backButton.setDisabled(!this.pageNumber)
-    this.onPageUnmount = page.render()
+    this.onPageUnmount = await page.render()
     setTimeout(() => this.buttonIsDisabled = false, 100)
   }
 
   async skipPage() {
-    if (this.isToNextPage) await this.toNextPage()
-    else this.toPrevPage()
+    await (this.isToNextPage ? this.toNextPage() : this.toPrevPage())
   }
 
   validateElems(elems: PartialModalElem): elems is ModalElem {
@@ -128,6 +142,13 @@ export abstract class PageModal extends Modal {
 
   get invalidElemsError() {
     return new Error('Modal elements are incomplete.')
+  }
+
+  private toggleClassNames(toggleType: 'add' | 'remove', className: string, elem: Element | null) {
+    if (!elem) return
+    !className.match(' ') ?
+      elem[`${toggleType}Class`](className) :
+      elem[`${toggleType}Classes`](className.split(' '))
   }
 
   getPage(pageNumber: number) {
@@ -141,7 +162,26 @@ export abstract class PageModal extends Modal {
     return {
       ...page,
       render: () => page.render(templateElems),
-      submit: () => page.submit(templateElems)
+      submit: () => page.submit ? page.submit(templateElems) : this.close()
     }
+  }
+
+  static openSinglePage(createPage: createPageType) {
+    const singlePageModal = new SinglePageModal(createPage)
+    singlePageModal.open()
+    return singlePageModal
+  }
+}
+
+export type createPageType = (modal: SinglePageModal) => CreateModalPage
+
+class SinglePageModal extends PageModal {
+  pages: CreateModalPage[]
+  pageData: [undefined]
+
+  constructor(createPage: createPageType) {
+    super()
+    this.pages = [createPage(this)]
+    this.pageData = [undefined]
   }
 }
